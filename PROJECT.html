@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Redfish Conformance Engine — Project Overview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #fafafc;
+    --border: #a8a8b2;
+    --text: #000000;
+    --text-muted: #5b5b63;
+    --text-faint: #85858c;
+    --arrow: #9a9aa2;
+
+    --accent: #2451c9;      --accent-soft: #eef2fd; --accent-border: #8aa4e8;
+    --cross-bg: #eef0f2;    --cross-bd: #c9ccd1;    --cross-tx: #40444b; --cross-border: #9a9ea8;
+    --past-bg:  #f2f2f4;    --past-bd:  #c8c8ce;    --past-tx:  #55555c; --past-border: #9a9aa4;
+    --now-bg:   #e8f7ea;    --now-bd:   #79c98f;    --now-tx:   #14713a; --now-border: #4fae6e;
+    --report-bg:#fdecef;    --report-bd:#f0b8c4;    --report-tx:#9c1f42; --report-border: #d9647c;
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --surface: #ffffff; --surface-2: #fafafc; --border: #a8a8b2; --text: #000000;
+    --text-muted: #5b5b63; --text-faint: #85858c; --arrow: #9a9aa2;
+    --accent: #2451c9; --accent-soft: #eef2fd; --accent-border: #8aa4e8;
+    --cross-bg: #eef0f2; --cross-bd: #c9ccd1; --cross-tx: #40444b; --cross-border: #9a9ea8;
+    --past-bg: #f2f2f4; --past-bd: #c8c8ce; --past-tx: #55555c; --past-border: #9a9aa4;
+    --now-bg: #e8f7ea; --now-bd: #79c98f; --now-tx: #14713a; --now-border: #4fae6e;
+    --report-bg: #fdecef; --report-bd: #f0b8c4; --report-tx: #9c1f42; --report-border: #d9647c;
+  }
+  :root[data-theme="dark"] {
+    --bg: #17181c; --surface: #1f2025; --surface-2: #202126; --border: #34363d; --text: #ececef;
+    --text-muted: #b7b8c0; --text-faint: #85868f; --arrow: #6b6d76;
+    --accent: #8fb0ff; --accent-soft: #1b2540; --accent-border: #3b5aa8;
+    --cross-bg: #232428; --cross-bd: #3c3e46; --cross-tx: #d4d5db; --cross-border: #3c3e46;
+    --past-bg: #26272c; --past-bd: #45474f; --past-tx: #9a9ba3; --past-border: #45474f;
+    --now-bg: #123322; --now-bd: #2f8556; --now-tx: #8fe3ab; --now-border: #2f8556;
+    --report-bg: #3a151f; --report-bd: #832d47; --report-tx: #f7b9c8; --report-border: #832d47;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17181c; --surface: #1f2025; --surface-2: #202126; --border: #34363d; --text: #ececef;
+      --text-muted: #b7b8c0; --text-faint: #85868f; --arrow: #6b6d76;
+      --accent: #8fb0ff; --accent-soft: #1b2540; --accent-border: #3b5aa8;
+      --cross-bg: #232428; --cross-bd: #3c3e46; --cross-tx: #d4d5db; --cross-border: #3c3e46;
+      --past-bg: #26272c; --past-bd: #45474f; --past-tx: #9a9ba3; --past-border: #45474f;
+      --now-bg: #123322; --now-bd: #2f8556; --now-tx: #8fe3ab; --now-border: #2f8556;
+      --report-bg: #3a151f; --report-bd: #832d47; --report-tx: #f7b9c8; --report-border: #832d47;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  .page { max-width: 880px; margin: 0 auto; padding: 0 1.25rem 4rem; }
+  h1, h2, h3, h4 { text-wrap: balance; }
+  h2 { font-size: 1.3rem; margin: 0 0 0.6rem; }
+  h3 { font-size: 1.02rem; margin: 0 0 0.6rem; }
+  p { max-width: 700px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
+  a { color: var(--accent); }
+
+  /* ---- hero ---- */
+  .hero {
+    padding: 3rem 1.25rem 2rem;
+    background: linear-gradient(180deg, var(--accent-soft), var(--bg) 85%);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-inner { max-width: 880px; margin: 0 auto; }
+  .eyebrow {
+    display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 0.6rem;
+  }
+  .hero h1 { font-size: 2rem; margin: 0 0 0.6rem; line-height: 1.15; }
+  .hero .lede { color: var(--text-muted); font-size: 1.02rem; max-width: 620px; margin: 0 0 1.1rem; }
+  .note {
+    font-size: 0.8rem; color: var(--text-faint); border-left: 3px solid var(--border);
+    padding: 0.5rem 0.9rem; max-width: 620px; background: var(--surface); border-radius: 0 8px 8px 0;
+  }
+
+  /* ---- nav ---- */
+  .toc {
+    display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; margin: 1.4rem 0 0;
+    font-size: 0.82rem;
+  }
+  .toc a { color: var(--text-muted); text-decoration: none; border-bottom: 1px dotted var(--border); }
+  .toc a:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---- sections ---- */
+  section { padding: 2.6rem 0; border-bottom: 1px solid var(--border); }
+  section:last-of-type { border-bottom: none; }
+  .kicker {
+    display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em;
+    text-transform: uppercase; padding: 0.2rem 0.55rem; border-radius: 999px;
+    background: var(--cross-bd); color: var(--cross-tx); margin-bottom: 0.7rem;
+  }
+
+  /* ---- stat grid ---- */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.9rem; margin: 1.2rem 0; }
+  .stat-card { border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem 1rem; background: var(--surface); }
+  .stat-card .num { font-size: 1.5rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat-card .lbl { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+  /* ---- chips / flow ---- */
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chip {
+    border: 1.5px solid var(--border); border-radius: 10px; background: var(--surface);
+    padding: 0.5rem 0.7rem; font-size: 0.82rem; line-height: 1.35;
+    flex: 1 1 180px; min-width: 150px;
+  }
+  .chip b { display: block; font-weight: 600; font-size: 0.82rem; margin-bottom: 0.15rem; }
+  .chip span.small { color: var(--text-muted); font-size: 0.78rem; }
+  .flow-arrow { display: flex; align-items: center; gap: 0.6rem; margin: 0.55rem 0.2rem; color: var(--text-muted); font-size: 0.78rem; }
+  .flow-arrow .line { flex: 0 0 2px; width: 2px; height: 22px; background: var(--arrow); margin-left: 1.6rem; position: relative; }
+  .flow-arrow .line::after {
+    content: ""; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%);
+    border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--arrow);
+  }
+
+  /* ---- tables ---- */
+  .table-wrap { overflow-x: auto; margin: 0.6rem 0 0.9rem; }
+  table.simple { border-collapse: collapse; font-size: 0.82rem; min-width: 100%; }
+  table.simple th, table.simple td { border: 1px solid var(--border); padding: 0.45rem 0.65rem; text-align: left; vertical-align: top; }
+  table.simple th { background: var(--surface-2); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+
+  /* ---- generation cards ---- */
+  .gen-row { display: flex; gap: 0.9rem; flex-wrap: wrap; margin: 0.9rem 0 1.1rem; }
+  .gen-card { flex: 1 1 220px; border-radius: 12px; padding: 0.9rem 1rem; border: 2px solid var(--border); background: var(--surface); }
+  .gen-card.past { border-style: dashed; border-color: var(--past-border); }
+  .gen-card.now  { border: 2.5px solid var(--now-border); background: var(--now-bg); }
+  .gen-card .gen-tag {
+    display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    padding: 0.15rem 0.5rem; border-radius: 999px; margin-bottom: 0.55rem;
+  }
+  .gen-card.past .gen-tag { background: var(--past-bd); color: var(--past-tx); }
+  .gen-card.now  .gen-tag { background: var(--now-bd);  color: var(--now-tx); }
+  .gen-card dl { margin: 0; font-size: 0.79rem; }
+  .gen-card dt { color: var(--text-faint); margin-top: 0.5rem; }
+  .gen-card dd { margin: 0.1rem 0 0; color: var(--text); }
+  .gen-card dt:first-of-type { margin-top: 0; }
+
+  /* ---- branch diagram ---- */
+  .branch-diagram { display: flex; gap: 1rem; margin: 0.9rem 0; flex-wrap: wrap; align-items: stretch; }
+  .branch-path { flex: 1 1 260px; border: 2px solid var(--border); border-radius: 12px; padding: 0.8rem 0.9rem; background: var(--surface); }
+  .branch-path h4 { margin: 0 0 0.6rem; font-size: 0.8rem; color: var(--report-tx); }
+  .branch-box {
+    border: 1.5px dashed var(--border); border-radius: 8px; padding: 0.4rem 0.6rem; font-size: 0.76rem;
+    margin: 0.35rem 0; background: var(--bg); color: var(--text-muted);
+  }
+  .branch-box.bad { border-color: var(--report-border); color: var(--report-tx); }
+  .branch-box b { color: var(--text); }
+
+  /* ---- code compare ---- */
+  .code-compare { display: flex; gap: 0.9rem; margin: 0.9rem 0; flex-wrap: wrap; align-items: flex-start; }
+  .code-panel { flex: 1 1 320px; min-width: 280px; border: 2px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .code-panel .code-head { padding: 0.5rem 0.8rem; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 2px solid var(--border); }
+  .code-panel.old .code-head { background: var(--past-bg); color: var(--past-tx); }
+  .code-panel.new .code-head { background: var(--now-bg);  color: var(--now-tx); }
+  .code-panel pre {
+    margin: 0; padding: 0.8rem; font-size: 0.71rem; line-height: 1.55; overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre;
+  }
+  .code-panel .code-foot { padding: 0.5rem 0.8rem; font-size: 0.74rem; color: var(--text-muted); border-top: 1px solid var(--border); }
+  pre.block {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.9rem 1rem; font-size: 0.82rem; overflow-x: auto; line-height: 1.55;
+  }
+
+  /* ---- concept cards ---- */
+  .concept-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.9rem; margin: 1.1rem 0; }
+  .concept-card { border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.1rem; background: var(--surface); }
+  .concept-card h4 { margin: 0 0 0.4rem; font-size: 0.9rem; }
+  .concept-card p { margin: 0; font-size: 0.83rem; color: var(--text-muted); }
+
+  /* ---- quote ---- */
+  blockquote {
+    margin: 1rem 0; padding: 0.9rem 1.1rem; border-left: 3px solid var(--accent-border);
+    background: var(--accent-soft); border-radius: 0 10px 10px 0; font-size: 0.88rem; color: var(--text);
+  }
+  .pullquote {
+    margin: 1.4rem 0; padding: 1.2rem 1.4rem; border: 1.5px solid var(--now-border);
+    background: var(--now-bg); border-radius: 12px; font-size: 0.95rem; color: var(--text);
+  }
+  .pullquote b { color: var(--now-tx); }
+
+  /* ---- misc ---- */
+  ul.tight { margin: 0.5rem 0; padding-left: 1.2rem; font-size: 0.9rem; }
+  ul.tight li { margin: 0.35rem 0; }
+  .cli-safety {
+    margin-top: 0.9rem; font-size: 0.85rem; color: var(--text-muted);
+    border: 1px dashed var(--report-border); background: var(--report-bg); color: var(--report-tx);
+    padding: 0.7rem 0.9rem; border-radius: 10px; max-width: 700px;
+  }
+  footer { padding: 2.2rem 0 3rem; font-size: 0.8rem; color: var(--text-faint); }
+  footer a { color: inherit; }
+  .back-to-top { font-size: 0.78rem; }
+
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Case study</span>
+    <h1>Insyde Redfish Automated Test</h1>
+    <p class="lede">
+      A conformance-testing framework for a hardware vendor's Redfish schema,
+      property, and action extensions — run against real, live BMC hardware,
+      built as a small declarative engine on top of pytest, and largely
+      built in collaboration with an AI pair.
+    </p>
+    <p class="note">
+      Documentation-only excerpt — source code, test definitions, live
+      credentials, and internal issue tracking have all been removed. What's
+      here is the design story, the AI-assisted engineering process, and how
+      the tool is used day to day. This single page folds together the
+      project overview, the architecture walkthrough, and the AI-workflow
+      narrative that otherwise live as separate files in this repo.
+    </p>
+    <nav class="toc">
+      <a href="#overview">Overview</a>
+      <a href="#why">Why it exists</a>
+      <a href="#usage">Usage</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#generations">Three generations</a>
+      <a href="#concepts">Design concepts</a>
+      <a href="#ai-workflow">Working with AI</a>
+      <a href="#credits">Credits</a>
+    </nav>
+  </div>
+</div>
+
+<div class="page">
+
+  <section id="overview">
+    <span class="kicker">Overview</span>
+    <h2>What it is</h2>
+    <p>
+      Automated conformance testing for a hardware vendor's extensions to
+      <b>Redfish</b> — the industry-standard REST API server hardware exposes
+      for power, thermal, storage, and firmware-update control — on
+      OpenBMC-based server-management firmware. Every test runs against real,
+      live hardware over HTTPS; there is no mock or simulated BMC anywhere in
+      the suite, across two hardware generations spanning multiple CPU and
+      GPU vendor platform configurations.
+    </p>
+
+    <h3 style="margin-top:1.6rem">Scale</h3>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="num">41</div><div class="lbl">resource schemas covered</div></div>
+      <div class="stat-card"><div class="num">~690</div><div class="lbl">tests collected per run</div></div>
+      <div class="stat-card"><div class="num">~40</div><div class="lbl">hand-written test modules fully retired</div></div>
+      <div class="stat-card"><div class="num">~215</div><div class="lbl">engine self-tests, no live hardware needed</div></div>
+      <div class="stat-card"><div class="num">7</div><div class="lbl">destructive-action categories requiring explicit opt-in</div></div>
+      <div class="stat-card"><div class="num">2×5</div><div class="lbl">hardware generations × platform configurations</div></div>
+    </div>
+  </section>
+
+  <section id="why">
+    <span class="kicker">Motivation</span>
+    <h2>Why it exists</h2>
+    <p>
+      DMTF, the standards body behind Redfish, publishes free, open-source
+      validators — the <b>Service Validator</b> and the <b>Interop
+      Validator</b>. Both are used here too, but neither can answer the
+      question this project exists to answer, for two structural reasons:
+    </p>
+    <ul class="tight">
+      <li>
+        The Service Validator is <b>GET-only</b> and treats a <b>missing
+        property as legal</b> — the standard schema marks almost everything
+        optional, so it can confirm <i>"is what you returned well-formed?"</i>
+        but never <i>"did you return it at all?"</i>. Vendor conformance is
+        largely the second question: the vendor's own spec says a property
+        <b>shall</b> exist, and a platform quietly omitting it is a real,
+        recurring failure mode the validator simply cannot see.
+      </li>
+      <li>
+        The Interop Validator can express "this must exist," but its model
+        stops at the property — it can say a property is writable without
+        saying what a write must send, return, or reflect, and it has no way
+        to express an <b>ordered sequence</b> of operations (create → verify
+        → delete, poll a long-running task, reboot-and-wait).
+      </li>
+    </ul>
+    <p style="font-size:0.85rem;color:var(--text-muted)">
+      Full capability-by-capability comparison, including two earlier
+      generations of this suite itself: see <a href="#generations">Three
+      generations</a> below.
+    </p>
+  </section>
+
+  <section id="usage">
+    <span class="kicker">Day to day</span>
+    <h2>How it's used</h2>
+    <p>
+      A single CLI wraps pytest; every flag or argument it doesn't recognize
+      passes straight through, so the full native pytest vocabulary
+      (<code>-m</code>, <code>-k</code>, <code>-v</code>, …) always stacks on
+      top of it. <i>(Illustrative — the entrypoint script itself isn't
+      included in this excerpt.)</i>
+    </p>
+    <pre class="block"># Full suite against the configured rig, terminal output
+python3 run_tests.py
+
+# Same, plus a self-contained HTML report
+python3 run_tests.py --html
+
+# One schema, filtered to one platform
+python3 run_tests.py -m "&lt;platform&gt; and Chassis"
+
+# A destructive action stays off by default no matter what's selected -
+# it needs its own explicit, named opt-in
+python3 run_tests.py --allow-bmc-reset tests/Manager/</pre>
+    <div class="cli-safety">
+      That last pattern is a deliberate safety choice, not an afterthought: a
+      handful of action categories (host power control, a full BMC reset, a
+      BIOS password change, a UEFI secure-boot key change, …) each require
+      their own <code>--allow-&lt;category&gt;</code> flag, independent of
+      test selection entirely — so a marker expression alone can never
+      trigger a factory reset.
+    </div>
+  </section>
+
+  <section id="architecture">
+    <span class="kicker">Architecture</span>
+    <h2>A pytest plugin, not a pytest replacement</h2>
+    <p style="font-size:0.9rem;color:var(--text-muted)">
+      End to end, this is what happens on a single test run:
+    </p>
+
+    <div class="chips">
+      <div class="chip"><b>1. CLI entrypoint</b><span class="small">unrecognized flags/args pass straight through to pytest</span></div>
+    </div>
+    <div class="flow-arrow"><div class="line"></div></div>
+    <div class="chips">
+      <div class="chip"><b>2. pytest collection</b><span class="small">walks the test tree, hands each schema's file to a custom collection hook</span></div>
+    </div>
+    <div class="flow-arrow"><div class="line"></div></div>
+    <div class="chips">
+      <div class="chip"><b>3. a schema's test-definition file</b><span class="small">parsed into a real pytest Collector/Item tree — pytest's own custom-collection mechanism, not a bespoke one</span></div>
+    </div>
+    <div class="flow-arrow"><div class="line"></div></div>
+    <div class="chips">
+      <div class="chip"><b>4. live BMC over HTTPS</b><span class="small">per-rig connection config + per-platform resource-topology data build every request — <b>no mock/fixture BMC anywhere</b></span></div>
+    </div>
+    <div class="flow-arrow"><div class="line"></div></div>
+    <div class="chips">
+      <div class="chip"><b>5. pass/fail per test, one report</b><span class="small">terminal output, or a self-contained HTML report</span></div>
+    </div>
+
+    <p style="margin:1.3rem 0 0.5rem;font-size:0.9rem;color:var(--text-muted)">
+      Zooming into steps 2–3: <b>pytest's model is kept, not replaced.</b>
+      Every declarative construct becomes a real pytest object, reached
+      through one of pytest's own hooks — never a bespoke one:
+    </p>
+    <div class="table-wrap">
+      <table class="simple">
+        <tr><th>Declarative construct</th><th>Becomes</th><th>pytest hook</th></tr>
+        <tr><td>a schema's test file</td><td>a Collector</td><td><code>pytest_collect_file</code></td></tr>
+        <tr><td>a test case / a payload / a sequence step</td><td>an Item</td><td><code>item.runtest()</code></td></tr>
+        <tr><td>a platform-applicability declaration</td><td>a marker</td><td><code>item.setup()</code></td></tr>
+        <tr><td>a setup/teardown declaration</td><td>a fixture-like hook</td><td><code>item.setup()</code> / <code>item.teardown()</code></td></tr>
+        <tr><td>a verification declaration</td><td>an assertion</td><td>raised inside <code>runtest()</code></td></tr>
+      </table>
+    </div>
+    <p style="font-size:0.85rem;color:var(--text-faint)">
+      That's why anything that already understands pytest — <code>-m</code>,
+      <code>-k</code>, exit codes, CI integration — keeps working
+      unmodified; the declarative layer sits on top of pytest's model instead
+      of beside it.
+    </p>
+  </section>
+
+  <section id="generations">
+    <span class="kicker">Evolution</span>
+    <h2>Same coverage, three shapes — and why two of them stopped working</h2>
+    <p style="font-size:0.9rem;color:var(--text-muted)">
+      Not a preference — each move happened because the previous shape broke
+      at scale. The dashed cards are retired; nothing below is a live choice
+      today.
+    </p>
+
+    <div class="gen-row">
+      <div class="gen-card past">
+        <span class="gen-tag">Retired</span>
+        <h3 style="margin:0 0 0.6rem;font-size:0.95rem">1. TestLink</h3>
+        <dl>
+          <dt>Execution</dt><dd>manual — a human clicks Pass/Fail</dd>
+          <dt>Branching</dt><dd>none — a linear list of prose steps</dd>
+          <dt>Reporting</dt><dd>one Pass/Fail per case, however many branches it covers</dd>
+          <dt>Who can author</dt><dd>anyone — prose</dd>
+        </dl>
+      </div>
+      <div class="gen-card past">
+        <span class="gen-tag">Retired</span>
+        <h3 style="margin:0 0 0.6rem;font-size:0.95rem">2. Hand-written pytest</h3>
+        <dl>
+          <dt>Execution</dt><dd>automated</dd>
+          <dt>Branching</dt><dd>real <code>if</code>/<code>match</code> — but platform gating is a mixin a class inherits</dd>
+          <dt>Reporting</dt><dd>one Pass/Fail per test function</dd>
+          <dt>Who can author</dt><dd>code-fluent only</dd>
+        </dl>
+      </div>
+      <div class="gen-card now">
+        <span class="gen-tag">Current — every test today</span>
+        <h3 style="margin:0 0 0.6rem;font-size:0.95rem">3. Config-driven, declarative</h3>
+        <dl>
+          <dt>Execution</dt><dd>automated</dd>
+          <dt>Branching</dt><dd>declarative — platform tiers, per-tier compliance deltas</dd>
+          <dt>Reporting</dt><dd>per test case, per payload, <b>and per sequence step</b></dd>
+          <dt>Who can author</dt><dd>anyone who knows the API + the field vocabulary</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="flow-arrow"><div class="line"></div><span>why generation 1 couldn't survive a platform-conditional check</span></div>
+
+    <div class="branch-diagram">
+      <div class="branch-path">
+        <h4>Option A — duplicate the case per platform</h4>
+        <div class="branch-box bad"><b>Case (platform A variant)</b> — full copy of every step</div>
+        <div class="branch-box bad"><b>Case (platform B variant)</b> — full copy, already drifting</div>
+        <div class="branch-box bad"><b>Case (platform C variant)</b> — full copy, drifting more</div>
+        <p style="margin:0.5rem 0 0;font-size:0.74rem;color:var(--text-muted)">Spec explodes combinatorially; every copy rots independently.</p>
+      </div>
+      <div class="branch-path">
+        <h4>Option B — push the condition into prose</h4>
+        <div class="branch-box"><b>Case</b> — "if the platform supports X, verify Y, otherwise verify Z"</div>
+        <div class="branch-box bad">human tester decides which branch applies — <b>unrecorded</b></div>
+        <div class="branch-box bad">recorded Pass covers an <b>unknown path</b></div>
+        <p style="margin:0.5rem 0 0;font-size:0.74rem;color:var(--text-muted)">Nothing confirms the tester evaluated the condition correctly.</p>
+      </div>
+    </div>
+    <p style="font-size:0.9rem;color:var(--text-muted)">
+      Both options write <code>if</code>/<code>switch</code> logic in a
+      medium that cannot execute it. <b>Conditional logic belongs somewhere a
+      machine evaluates it</b> — the reason this moved to real code at all.
+    </p>
+
+    <div class="flow-arrow"><div class="line"></div><span>the same coverage, generation 2 → generation 3 — illustrative, not verbatim source</span></div>
+
+    <div class="code-compare">
+      <div class="code-panel old">
+        <div class="code-head">Hand-written pytest — ~4 files, ~100+ lines per schema</div>
+        <pre>import requests
+import pytest
+from utils import AllPlatformMark, CommonUtils, PropertyErrorMsg
+from fan_utils import FanUtils, initialize_fan_info
+
+@pytest.mark.Fan
+@pytest.mark.usefixtures("initialize_fan_info")
+class FanFixture(AllPlatformMark):
+    fan_ids = []
+
+    @pytest.fixture(scope="class", autouse=True)
+    def initialize_collection(self):
+        url = (f"{CommonUtils.REDFISH_URL}/redfish/v1/Chassis/"
+               f"{CommonUtils.BMC_CHASSIS}/Thermal")
+        response = requests.get(url, verify=False)
+        assert response.status_code == 200
+        type(self).fan_ids = [
+            f["MemberId"] for f in response.json().get("Fans", [])
+        ]
+        yield
+
+@pytest.mark.service
+class TestFanGet(FanFixture):
+    def test_fan_service(self):
+        pattern = CommonUtils.resolve_placeholders(FanUtils.FAN_PATTERN)
+        for fan_id in type(self).fan_ids:
+            url = (f"{CommonUtils.REDFISH_URL}/redfish/v1/Chassis/"
+                   f"{CommonUtils.BMC_CHASSIS}/Thermal#/Fans/{fan_id}")
+            response = requests.get(url, verify=False)
+            assert response.status_code == 200
+            errors = PropertyErrorMsg()
+            errors.validate_property(pattern, response.json())
+            errors.assert_no_errors()</pre>
+        <div class="code-foot">+ a matching helper module and a hand-coded expected-response pattern file, per schema</div>
+      </div>
+      <div class="code-panel new">
+        <div class="code-head">Config-driven, declarative — ~1 file, ~10 lines</div>
+        <pre>test_cases:
+  - id: Fan.GET
+    schema: Fan
+    parametrize:
+      resource: CHASSIS
+      as: chassis_id
+      nested: {resource: FAN, as: fan_id}
+    path: /redfish/v1/Chassis/{context.chassis_id}/Thermal#/Fans/{context.fan_id}
+    checks:
+      - type: status_code
+        expected: 200
+      - type: property_pattern</pre>
+        <div class="code-foot">Platform gating, must-exist checking, and per-id fan-out are all declared, not coded.</div>
+      </div>
+    </div>
+
+    <div class="flow-arrow"><div class="line"></div><span>the same axes, extended to the two DMTF tools</span></div>
+
+    <div class="table-wrap">
+      <table class="simple" style="min-width:760px">
+        <tr><th></th><th>TestLink</th><th>DMTF Service Validator</th><th>DMTF Interop Validator</th><th>Hand-written pytest</th><th>Config-driven, declarative</th></tr>
+        <tr><td><b>Standard schema conformance</b></td><td>n/a — prose only</td><td>✅ automatic, whole tree</td><td>partial — only what the profile lists</td><td>hand-authored pattern per schema, no shared format</td><td>hand-curated overlay — more work, less breadth</td></tr>
+        <tr><td><b>Property must-exist requirement</b></td><td>manual, never machine-checked</td><td>✗ absent ≠ failure</td><td>✅ can declare it mandatory</td><td>✗ none — pattern checked shape, not presence</td><td>✅ the default: listed ⇒ must be there</td></tr>
+        <tr><td><b>Vendor extension properties</b></td><td>manual, via prose</td><td>✗ not covered by the standard schema</td><td>possible, hand-authored 2nd dialect</td><td>possible, hand-coded per module</td><td>✅ same file as everything else</td></tr>
+        <tr><td><b>Per-platform-tier delta</b></td><td>manual — duplicate the case</td><td>✗</td><td>awkward — separate profile per platform</td><td>mixin per combination, fixed at design time</td><td>✅ merged automatically</td></tr>
+        <tr><td><b>Hardware topology</b></td><td>n/a</td><td>✗ validates what it finds</td><td>partial — count only</td><td>scattered per helper module</td><td>✅ names expected ids per platform</td></tr>
+        <tr><td><b>PATCH / POST / PUT / DELETE</b></td><td>manual</td><td>✗ read-only by design</td><td>unclear — checks a claimed capability only</td><td>✅ arbitrary code, ad hoc per module</td><td>✅ send, verify, and optionally restore</td></tr>
+        <tr><td><b>Actions invoked</b></td><td>manual</td><td>✗</td><td>✗</td><td>✅ arbitrary code</td><td>✅ declared actions with expected outcomes</td></tr>
+        <tr><td><b>Ordered multi-step flows</b></td><td>linear only, no branch</td><td>✗</td><td>✗ no sequencing concept</td><td>✅ ad hoc, bespoke per module, one Pass/Fail overall</td><td>✅ Groups: create → verify → delete, poll a task</td></tr>
+        <tr><td><b>Data passed between steps</b></td><td>manual, unenforced prose</td><td>✗</td><td>✗</td><td>✅ language-native state, no formal mechanism</td><td>✅ explicit outputs → later-step references</td></tr>
+        <tr><td><b>Destructive-action safety</b></td><td>manual, ungated</td><td>n/a — never writes</td><td>n/a</td><td>ad hoc opt-in hacks or a blanket skip</td><td>✅ named opt-in flag per category, outside test selection</td></tr>
+        <tr><td><b>Setup cost</b></td><td>a case in a UI</td><td>one config file</td><td>a whole profile dialect</td><td>~4 files/schema, largely boilerplate</td><td>one declarative file beside the test</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="concepts">
+    <span class="kicker">Design</span>
+    <h2>Design concepts worth naming</h2>
+    <div class="concept-grid">
+      <div class="concept-card">
+        <h4>The three-way split</h4>
+        <p>
+          Every test's behavior is assembled from three independent layers
+          that never overlap: <i>which rig</i> (connection info), <i>what
+          that hardware actually has</i> (a per-platform resource inventory),
+          and <i>what the spec requires of it</i> (compliance data, with
+          per-platform-tier deltas merged automatically). Keeping these three
+          separate is what lets the same test definition run unmodified
+          against ten different physical machines.
+        </p>
+      </div>
+      <div class="concept-card">
+        <h4>Safety as a first-class, orthogonal gate</h4>
+        <p>
+          A small number of action categories — host power control, firmware
+          update, a full reset, a password change, a secure-boot key change —
+          are dangerous enough on real hardware that none run by default
+          under any test-selection expression. Each needs its own explicit
+          opt-in flag, independent of which tests were otherwise selected.
+        </p>
+      </div>
+      <div class="concept-card">
+        <h4>A finding is reported, not hidden</h4>
+        <p>
+          When live hardware genuinely doesn't do what the spec requires, the
+          house style is to write the test as though it should pass, let it
+          fail honestly, and record the finding rather than quietly loosening
+          the check. A green report that hides a real firmware gap is worse
+          than a red one that names it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="ai-workflow">
+    <span class="kicker">Process</span>
+    <h2>Working with an AI on a design this size</h2>
+    <p>
+      How the engine above was actually built — the <i>process</i>, not the
+      design covered so far. Written down because the method transferred
+      better than any individual output did: the same loop produced the
+      engine itself, dozens of schema migrations, and this documentation set
+      — and it caught several mistakes a write-code-and-hope approach would
+      have shipped.
+    </p>
+
+    <h3 style="margin-top:1.6rem">The shape of the loop</h3>
+    <div class="chips"><div class="chip"><b>idea</b></div></div>
+    <div class="flow-arrow"><div class="line"></div></div>
+    <div class="chips"><div class="chip"><b>GRILL</b><span class="small">one question at a time, until the design is pinned down — decisions, including the ones that overrode the recommendation</span></div></div>
+    <div class="flow-arrow"><div class="line"></div></div>
+    <div class="chips"><div class="chip"><b>SPEC</b><span class="small">problem statement, user stories, decisions frozen in writing</span></div></div>
+    <div class="flow-arrow"><div class="line"></div></div>
+    <div class="chips"><div class="chip"><b>TICKETS</b><span class="small">vertical slices, each with acceptance criteria and its blockers</span></div></div>
+    <div class="flow-arrow"><div class="line"></div></div>
+    <div class="chips"><div class="chip"><b>IMPLEMENT</b><span class="small">one ticket per session · verify live · commit</span></div></div>
+    <div class="flow-arrow"><div class="line"></div></div>
+    <div class="chips"><div class="chip"><b>RECORD</b><span class="small">status-ledger entry + a design-history paragraph, in the same commit as the work</span></div></div>
+    <div class="flow-arrow"><div class="line"></div><span>next ticket</span></div>
+    <p style="font-size:0.85rem;color:var(--text-faint)">
+      The important property: <b>each stage produces a durable artifact on
+      disk.</b> No stage depends on conversation memory surviving, which
+      matters because a design this size spans many sessions and context
+      windows.
+    </p>
+
+    <h3 style="margin-top:2rem">Phase 1 — grill the design before any code</h3>
+    <p>
+      The single highest-leverage step, and the least obvious one. Before any
+      code, the design was interrogated question by question — execution
+      model, config format, setup/teardown scope, verification design, id
+      grammar, file layout, step data passing, platform hierarchy, risk
+      guarding, compliance tiering, reporting, migration strategy. One
+      question at a time, each with a recommended answer, waiting for a
+      decision before moving on.
+    </p>
+    <blockquote>
+      "This spec is the synthesis of an extended grilling session … every
+      decision point above reflects an explicit choice made during that
+      session, including several where the chosen option was not the
+      initially recommended one — e.g. one-file-per-schema config layout,
+      sequences living inside the same file as the tests they sequence
+      rather than a separate top-level directory, and the exact order of the
+      platform-tier hierarchy."
+    </blockquote>
+    <div class="pullquote">
+      <b>Three core structural decisions went against the AI's
+      recommendation</b> — and they were right. Had the AI simply proposed a
+      design and started building, all three would have gone the other way,
+      and each would have been expensive to reverse once dozens of schemas
+      depended on it.
+    </div>
+    <ul class="tight">
+      <li><b>One question at a time.</b> A batch of five questions gets one skimmed answer.</li>
+      <li><b>Insist on a recommendation with each question.</b> "What do you prefer?" wastes the AI's judgement; "here's my recommendation and why, do you agree?" surfaces reasoning you can push back on.</li>
+      <li><b>Facts are looked up, decisions are asked.</b> Anything discoverable from the filesystem or the live rig shouldn't become a question.</li>
+    </ul>
+
+    <h3 style="margin-top:2rem">Phase 2 — spec, then tickets</h3>
+    <p>
+      The spec captures the problem statement, the solution, user stories,
+      and — most usefully — an <b>Implementation Decisions</b> section that
+      freezes the grilling outcomes, plus an <b>Out of Scope</b> section so
+      later sessions don't quietly expand the work.
+    </p>
+    <p>
+      The tickets break it into <b>vertical slices</b>: each one cuts a
+      complete path through the design and is demoable on its own, rather
+      than being a horizontal layer. The very first ticket is instructive —
+      <i>"reads a schema's test-definition file, finds a single test case,
+      turns it into a real collected pytest Item, executes it against the
+      live BMC, and shows up as a normal report row."</i> That's the whole
+      stack, for exactly one read operation.
+    </p>
+    <pre class="block">**What to build:** the end-to-end behaviour, from the user's perspective
+**Blocked by:** other tickets, or "None - can start immediately"
+**Status:** ready-for-agent
+
+- [ ] Acceptance criterion 1
+- [ ] Acceptance criterion 2</pre>
+    <ul class="tight">
+      <li><b>Sizing to one context window.</b> A ticket that doesn't fit gets split. The engine took roughly 48 tickets in total.</li>
+      <li><b>Explicit blockers.</b> So any session can pick up the frontier — any ticket whose blockers are all done — without re-deriving the order.</li>
+    </ul>
+
+    <h3 style="margin-top:2rem">Phase 3 — implement one ticket at a time</h3>
+    <p>
+      One ticket per session, then commit. The verification discipline is
+      what makes the output trustworthy, and in this project it is unusually
+      strict for a specific reason: <b>there is no mock BMC.</b> Every test
+      hits real, shared hardware.
+    </p>
+    <ul class="tight">
+      <li><b>Explore the live rig before trusting the existing code.</b> Repeatedly, an older hand-written test's assumptions were simply wrong — see "What this caught" below.</li>
+      <li><b>A dry-run collection check is not proof.</b> It catches structural/config mistakes, and nothing else.</li>
+      <li><b>Verify with the narrowest thing that proves it.</b> One test, then the file, then the suite. A full-suite run on flaky shared hardware produces noise that buries the signal.</li>
+      <li><b>Run the engine's own self-test suite before committing any change to the engine itself.</b> Roughly 200 tests against a synthetic sandbox — the only way to change the engine without a rig.</li>
+      <li><b>Confirm before anything hard to reverse.</b> Deleting a resource the test didn't create, a reboot/factory-reset, toggling a live service, pushing.</li>
+    </ul>
+
+    <h3 style="margin-top:2rem">Phase 4 — record what was learned, not just what was done</h3>
+    <p>Three artifacts, updated <b>in the same commit as the work</b> rather than reconstructed later:</p>
+    <div class="table-wrap">
+      <table class="simple">
+        <tr><th>Artifact</th><th>Holds</th></tr>
+        <tr><td>a living status ledger</td><td>one row per ticket: status <b>and what was actually found</b> — including where the ticket's own premise turned out wrong</td></tr>
+        <tr><td>a running design-history narrative</td><td>one paragraph per ticket: the reasoning, so a future reader knows why a mechanism exists</td></tr>
+        <tr><td>the commit message</td><td>the full account — what changed, what was measured, what was left undone and why</td></tr>
+      </table>
+    </div>
+    <p style="font-size:0.88rem">
+      <b>Record findings, don't fix them into invisibility.</b> When the
+      hardware is genuinely wrong, the house style is to write the test as
+      though it worked, let it fail honestly, and comment the finding with
+      enough detail to reproduce it.
+    </p>
+
+    <h3 style="margin-top:2rem">Durable context: project memory and skills</h3>
+    <p>Two mechanisms stop each session from rediscovering the same things: short, auto-loaded per-directory notes recording each area's conventions and traps, and checked-in project skills encoding verification discipline rather than personal preference:</p>
+    <div class="table-wrap">
+      <table class="simple">
+        <tr><th>Skill</th><th>Job</th></tr>
+        <tr><td>single-test-case authoring</td><td>add one test case (or one step) to an existing schema's coverage</td></tr>
+        <tr><td>whole-schema migration</td><td>port a whole schema off the old style: explore the live rig → build → verify → clean up</td></tr>
+      </table>
+    </div>
+    <p style="font-size:0.85rem;color:var(--text-faint)">The rule of thumb for what belongs in these: <b>if you find yourself explaining the same thing a third time, write it down where the AI will read it automatically.</b></p>
+
+    <h3 style="margin-top:2rem">Rules that did the heavy lifting</h3>
+    <ul class="tight">
+      <li><b>Surface disagreement early, then defer.</b> If the AI thinks the approach is wrong, it says so once, clearly — then does what was asked.</li>
+      <li><b>Corrections mid-task are normal.</b> Several mechanisms reached their final shape only after three or four rounds of "no, do it this way" — one retry/drain design for a collection that renumbers its members on delete being the clearest case.</li>
+      <li><b>Verify claims about the code against the code.</b> Names, line counts, "who calls this" — all checkable, so check rather than assert.</li>
+      <li><b>Say what wasn't done.</b> Deferred work, unverified assumptions, and environment problems get stated plainly.</li>
+    </ul>
+
+    <h3 style="margin-top:2rem">What this caught</h3>
+    <p style="font-size:0.9rem;color:var(--text-muted)">Concrete things the loop surfaced that a build-it-and-move-on approach would have shipped:</p>
+    <div class="table-wrap">
+      <table class="simple">
+        <tr><th>Finding</th><th>How the process caught it</th></tr>
+        <tr><td>Three structural design decisions</td><td>grilling — all three overrode the AI's recommendation</td></tr>
+        <tr><td>A hand-written suite whose core assumptions about a collection endpoint were all wrong (creation order, a required field its own payload omitted, ids renumbering on delete)</td><td>"explore the live rig before trusting the old test"</td></tr>
+        <tr><td>A compliance file that validated <b>nothing</b> — every property left unmarked, so garbage data passed clean</td><td>proving a check can fail before trusting that it passes</td></tr>
+        <tr><td>A write-verification check that reported PASSED while the resource was, in fact, unmodified</td><td>a manual replay of the same request, because the pass looked too easy</td></tr>
+        <tr><td>A whole class of verification checks silently dead for years on one write path</td><td>traced to its cause from the finding above</td></tr>
+        <tr><td>A ticket whose own premise was wrong — following it literally would have broken the engine's self-test suite</td><td>verifying the premise instead of executing the ticket</td></tr>
+        <tr><td>Reference data files asserting properties the hardware has never actually had</td><td>live comparison during conversion</td></tr>
+        <tr><td>A documented class name that never existed anywhere in the code</td><td>cross-checking every documented symbol against the source</td></tr>
+      </table>
+    </div>
+
+    <div class="pullquote" style="margin-top:2rem">
+      <b>Grill the design before writing code — and expect to overrule the AI.</b>
+      Then write it down (spec → tickets), do one slice at a time, verify
+      against reality rather than against your own expectations, and record
+      what you learned in the same commit. The artifacts on disk, not the
+      conversation, are what carry the work between sessions.
+    </div>
+  </section>
+
+  <section id="credits" style="border-bottom:none">
+    <span class="kicker">Credits</span>
+    <h2>Tooling and credits</h2>
+    <p>
+      <b>Claude Code</b> (<a href="https://docs.claude.com/en/docs/claude-code">docs</a>)
+      — the agent. Its automatic per-directory context loading and
+      checked-in project skills are what make the durable-context part of
+      this workflow possible.
+    </p>
+    <p>
+      <b>AI Hero — <a href="https://www.aihero.dev/">aihero.dev</a></b> (Matt
+      Pocock) — the source of the workflow skills this process is built on.
+      The grill → spec → tickets → implement loop is his, and the
+      <i>grill-first</i> insight is the one that changed the most about how
+      this project was built.
+    </p>
+    <div class="table-wrap">
+      <table class="simple">
+        <tr><th>Skill</th><th>Used for</th></tr>
+        <tr><td><code>grilling</code> / <code>grill-me</code></td><td>Phase 1 — relentless one-question-at-a-time interrogation of a design</td></tr>
+        <tr><td><code>to-spec</code></td><td>Phase 2 — synthesising the conversation into a spec</td></tr>
+        <tr><td><code>to-tickets</code></td><td>Phase 2 — breaking a spec into vertical-slice tickets with blockers</td></tr>
+        <tr><td><code>implement</code></td><td>Phase 3 — work a spec/ticket with TDD at agreed seams</td></tr>
+        <tr><td><code>code-review</code></td><td>Phase 3 — two-axis review: repo standards, and spec conformance</td></tr>
+        <tr><td><code>writing-great-skills</code></td><td>Phase 4 — writing this project's own skills</td></tr>
+      </table>
+    </div>
+    <p style="font-size:0.85rem">
+      Related reading:
+      <a href="https://www.anthropic.com/engineering/claude-code-best-practices">Anthropic — Claude Code best practices</a> ·
+      <a href="https://docs.claude.com/en/docs/agents-and-tools/agent-skills">Agent skills documentation</a>
+    </p>
+  </section>
+
+  <footer>
+    <p>
+      Plain-text versions of this material: <code>README.md</code> (entry
+      point), <code>DESIGN.md</code> (architecture, prose form),
+      <code>AI_WORKFLOW.md</code> (this page's process section, prose form).
+    </p>
+    <p class="back-to-top"><a href="#overview">↑ back to top</a></p>
+  </footer>
+
+</div>
+</body>
+</html>
