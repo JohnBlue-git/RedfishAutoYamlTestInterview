@@ -6,260 +6,252 @@ h1, h2, h3, h4, h5, h6 {
 
 # Working with an AI on a design this size
 
-How the config-driven engine described in [`DESIGN.md`](DESIGN.md) was
-actually built — the *process*, not the design. `DESIGN.md` says what was
-built and why; this says *how the work was organised* so an AI could do most
-of it without the result drifting from what was wanted.
-
-Written down because the method transferred better than any individual
-output did. The same loop produced the engine itself, dozens of schema
-migrations, and the documentation set — and it caught several mistakes that
-a write-code-and-hope approach would have shipped.
+How the engine in [`DESIGN.md`](DESIGN.md) was built with an AI — the
+*process*, not the design. Written down because the method transferred
+better than any single output: the same loop built the engine, migrated the
+old tests, and produced these docs.
 
 ## Contents
 
 | § | Section |
 |---|---|
-| 1 | [The shape of the loop](#1-the-shape-of-the-loop) |
-| 2 | [Phase 1 — grill the design before any code](#2-phase-1--grill-the-design-before-any-code) |
-| 3 | [Phase 2 — spec, then tickets](#3-phase-2--spec-then-tickets) |
-| 4 | [Phase 3 — implement one ticket at a time](#4-phase-3--implement-one-ticket-at-a-time) |
-| 5 | [Phase 4 — record what was learned, not just what was done](#5-phase-4--record-what-was-learned-not-just-what-was-done) |
-| 6 | [Durable context: project memory and skills](#6-durable-context-project-memory-and-skills) |
-| 7 | [Rules that did the heavy lifting](#7-rules-that-did-the-heavy-lifting) |
-| 8 | [What this caught](#8-what-this-caught) |
-| 9 | [Tooling and credits](#9-tooling-and-credits) |
+| 1 | [Three loops, not a line](#1-three-loops-not-a-line) |
+| 2 | [The AI setup](#2-the-ai-setup) |
+| 3 | [Grill the design before any code](#3-grill-the-design-before-any-code) |
+| 4 | [Spec, then vertical-slice tickets](#4-spec-then-vertical-slice-tickets) |
+| 5 | [Three gates that keep it safe](#5-three-gates-that-keep-it-safe) |
+| 6 | [What this caught](#6-what-this-caught) |
+| 7 | [Records](#7-records) |
+| 8 | [Open problems](#8-open-problems) |
+| 9 | [Credits](#9-credits) |
 
----
-
-## 1. The shape of the loop
+## 1. Three loops, not a line
 
 ```
-  idea
-    │
-    ▼
-  GRILL      one question at a time, until the design is pinned down
-    │        → decisions, including the ones that overrode the recommendation
-    ▼
-  SPEC       problem statement, user stories, decisions frozen in writing
-    │
-    ▼
-  TICKETS    vertical slices, each with acceptance criteria and its blockers
-    │
-    ▼
-  IMPLEMENT  one ticket per session · verify live · commit
-    │
-    ▼
-  RECORD     status ledger entry + a design-history paragraph,
-    │        written in the same commit as the work
-    ▼
-  next ticket
+Feature loop      idea → /grill-me → /to-spec → /to-tickets → tickets on disk
+Ticket loop       a ticket → /implement → verify live → /code-review → outcome
+Improvement loop  a mistake or a correction → a rules line, a skill edit, or memory
 ```
 
-The important property: **each stage produces a durable artifact on disk.**
-No stage depends on conversation memory surviving, which matters because a
-design this size spans many sessions and context windows.
+Each ticket's outcome feeds back somewhere:
 
-## 2. Phase 1 — grill the design before any code
+```
+  ├─ done as planned        → update ticket status
+  ├─ found something new    → a new ticket
+  ├─ ticket premise wrong   → re-grill that ticket, update spec / tickets
+  ├─ AI repeated a mistake  → a rules line, a skill edit, or memory
+  └─ whole direction wrong  → back to /grill-me
+```
 
-The single highest-leverage step, and the least obvious one.
+**Every stage produces a durable file on disk.** Nothing depends on
+conversation memory surviving, which matters when the work spans many
+sessions and context windows.
 
-Before any code, the design was interrogated question by question —
-execution model, config format, setup/teardown scope, verification design,
-id grammar, file layout, step data passing, platform hierarchy, risk
-guarding, compliance tiering, reporting, migration strategy. One question at
-a time, each with a recommended answer, waiting for a decision before moving
-on.
+**What each workflow skill does.** Each one picks up from what the one
+before it left on disk:
 
-The resulting spec's closing note records the outcome:
+| Skill | What it does | What it leaves behind |
+|---|---|---|
+| `/grill-me` | Asks about a plan one question at a time, each with its own recommended answer, until every decision is made. Looks facts up itself and asks you only for decisions. | Only the conversation, which is why `/to-spec` runs straight after it |
+| `/to-spec` | Writes up what the grilling settled: the problem, the solution, user stories, implementation decisions, and the test seams. | a spec file |
+| `/to-tickets` | Splits the spec into thin end-to-end slices, each verifiable on its own, sized to one session, naming the tickets that block it. | one file per ticket |
+| `/implement` | Does one ticket: reads it, makes the change, runs tests along the way, then calls `/code-review`. | the change, in the working tree |
+| `/tdd` | Test first: one failing test at an agreed seam, then the code to pass it, then the next. | tests next to the change |
+| `/code-review` | Reviews the diff with two sub-agents in parallel: **Standards** (against the repo's written rules) and **Spec** (against the ticket or requirement). | a findings report; it changes no code |
 
-> *"This spec is the synthesis of an extended grilling session … every
-> decision point above reflects an explicit choice made during that session,
-> including several where the chosen option was not the initially
-> recommended one — e.g. one-file-per-schema config layout, sequences living
-> inside the same file as the tests they sequence rather than a separate
-> top-level directory, and the exact order of the platform-tier hierarchy."*
+## 2. The AI setup
 
-That parenthetical is the point. **Three core structural decisions went
-against the AI's recommendation** — and they were right. Had the AI simply
-proposed a design and started building, all three would have gone the other
-way, and each would have been expensive to reverse once dozens of schemas
-depended on it.
+The AI is Claude Code. What it knows about the project comes from Markdown
+files it reads automatically, in layers:
 
-Practical notes:
+```
+ personal (your machine)          in git (every teammate)
+ ├─ global rules                  ├─ project rules (root CLAUDE.md)
+ ├─ global workflow skills        ├─ per-folder rules (<folder>/CLAUDE.md)
+ └─ memory                        ├─ project skills (.claude/skills/)
+                                  └─ skill adapters (.claude/agents/)
+```
 
-- **One question at a time.** A batch of five questions gets one skimmed
-  answer.
-- **Insist on a recommendation with each question.** "What do you prefer?"
-  wastes the AI's judgement; "here's my recommendation and why, do you
-  agree?" surfaces reasoning you can push back on.
+- **Per-folder rules** record each area's conventions and, more valuably,
+  the traps already paid for — so no session rediscovers them.
+- **Project skills** encode repeatable jobs with verification built in:
+  writing a test case from a plain-language description or a curl command,
+  onboarding a new platform, refreshing an existing platform's inventory
+  from its live rig (read-only, each change adopted deliberately),
+  regenerating compliance data from the spec.
+- **Skill adapters** are short notes telling the global workflow skills where
+  this repo keeps its tickets and docs, so they write to the right place.
+- **Rule of thumb:** if you explain the same thing a third time, write it
+  down where the AI will read it automatically.
+
+**Getting the same setup.** Cloning gives a teammate every in-git layer. The
+personal layers they add themselves: copy the workflow skill set into their
+own skills folder (the adapters are already in git), write their own global
+rules — the author's has four: think before coding, simplicity first,
+surgical changes, and goal-driven execution with a checkable definition of
+done — and let memory build up as they correct the AI.
+
+## 3. Grill the design before any code
+
+The single highest-leverage step. Before any code, the design was
+interrogated one question at a time — execution model, config format, file
+layout, platform hierarchy, risk gating, reporting, migration — each with a
+recommended answer, waiting for a decision before moving on.
+
+**Three core structural decisions went against the AI's recommendation, and
+they were right.** Had the AI simply proposed a design and started building,
+all three would have gone the other way, and each would have been expensive
+to reverse later.
+
+- **One question at a time.** A batch of five gets one skimmed answer.
+- **Ask for a recommendation with each question.** It surfaces reasoning you
+  can push back on.
 - **Facts are looked up, decisions are asked.** Anything discoverable from
-  the filesystem or the live rig shouldn't become a question.
+  the code or the rig shouldn't become a question.
 
-## 3. Phase 2 — spec, then tickets
+## 4. Spec, then vertical-slice tickets
 
-**The spec** captures the problem statement, the solution, user stories, and
-— most usefully — an **Implementation Decisions** section that freezes the
-grilling outcomes, plus an **Out of Scope** section so later sessions don't
-quietly expand the work.
+**The spec** freezes the grilling outcomes as *Implementation Decisions*,
+plus an *Out of Scope* section so later sessions don't quietly expand the
+work.
 
-**The tickets** break it into **vertical slices**: each one cuts a complete
-path through the design and is demoable on its own, rather than being a
-horizontal layer. The very first ticket is instructive — *"reads a schema's
-test-definition file, finds a single test case, turns it into a real
-collected pytest Item, executes it against the live BMC, and shows up as a
-normal report row."* That's the whole stack, for exactly one read operation.
+**The tickets** are vertical slices — each cuts through the whole stack and
+is demoable on its own. The first ticket: *read one YAML test case, turn it
+into a real pytest Item, run it against the live BMC, and show it as a
+report row.* The whole stack, for one read operation.
 
-Each ticket carries:
+- **Size each ticket to one context window.** Too big → split it.
+- **Explicit blockers.** Any session can pick up a ticket whose blockers are
+  all done, without re-deriving the order.
 
-```markdown
-**What to build:** the end-to-end behaviour, from the user's perspective
-**Blocked by:** other tickets, or "None — can start immediately"
-**Status:** ready-for-agent
+## 5. Three gates that keep it safe
 
-- [ ] Acceptance criterion 1
-- [ ] Acceptance criterion 2
-```
+There is no mock BMC — every test hits real, shared hardware. Four failure
+modes came up when implementing with an AI:
 
-Two things that mattered in practice:
+1. **The review misses something** — the change looks right and is wrong.
+2. **"All pass", but it's failing** — a smaller run than claimed, an old
+   report, skipped tests counted as passes, the wrong rig.
+3. **A conversion silently drops a step**, or writes Python where a
+   declarative field already does the job.
+4. **A dangerous action** — e.g. locking out the account the suite logs in
+   with.
 
-- **Sizing to one context window.** A ticket that doesn't fit gets split.
-  The engine took roughly 48 tickets in total.
-- **Explicit blockers.** So any session can pick up the frontier — any
-  ticket whose blockers are all done — without re-deriving the order.
+Knowing pytest and Redfish helps a person *notice* these; it doesn't
+*prevent* them. A fixed procedure does:
 
-## 4. Phase 3 — implement one ticket at a time
+**Gate 1 — before a run against a rig.** The user is the safeguard: nothing
+in the tooling blocks a dangerous request, so read what the AI is about to
+send and don't auto-approve commands that touch a rig. Risky tests carry a
+risk category; confirm anything hard to reverse.
 
-One ticket per session, then commit. The verification discipline is what
-makes the output trustworthy, and in this project it is unusually strict for
-a specific reason: **there is no mock BMC.** Every test hits real, shared
-hardware.
+**Gate 2 — before claiming a pass: show the proof, not just "passed".** The
+AI must show four things:
 
-The rules that earned their place:
+1. the command it ran
+2. which rig it ran on
+3. pytest's final summary line, copied exactly
+4. the report file name
 
-- **Explore the live rig before trusting the existing code.** Repeatedly, an
-  older hand-written test's assumptions were simply wrong — see §8.
-- **A dry-run collection check is not proof.** It catches structural/config
-  mistakes, and nothing else. It cannot see a step referencing the wrong
-  data, a typo'd placeholder, or a code path that doesn't exist.
-- **Verify with the narrowest thing that proves it.** One test, then the
-  file, then the suite. A full-suite run on flaky shared hardware produces
-  noise that buries the signal.
-- **Run the engine's own self-test suite before committing any change to
-  the engine itself.** Roughly 200 tests against a synthetic sandbox — the
-  only way to change the engine without a rig.
-- **Confirm before anything hard to reverse.** Deleting a resource the test
-  didn't create, a reboot/factory-reset, toggling a live service, pushing.
+These **don't** count as a pass: a collection-only dry run (nothing is sent
+to the BMC), a smaller run than claimed, and skipped tests. Four things can
+be checked in seconds instead of taking the AI's word for it. Where it
+matters, prove the check *can* fail — a check that can't fail passes forever.
 
-## 5. Phase 4 — record what was learned, not just what was done
+**Gate 3 — before committing.** Run `/code-review`, passing in the
+requirement when it lives outside the repo — without it the Spec reviewer has
+nothing to check against, and a dropped step is exactly what nobody catches.
+A person reviews the result and re-implements if needed. Engine changes need
+the self-test suite green.
 
-Three artifacts, updated **in the same commit as the work** rather than
-reconstructed later:
+Rules that did the heavy lifting:
 
-| Artifact | Holds |
-|---|---|
-| a living status ledger | one row per ticket: status **and what was actually found** — including where the ticket's own premise turned out wrong |
-| a running design-history narrative | one paragraph per ticket: the *reasoning*, so a future reader knows why a mechanism exists |
-| the commit message | the full account — what changed, what was measured, what was left undone and why |
+- **Surface disagreement once, then defer.**
+- **Verify claims about the code against the code** — names, callers, counts.
+- **Say what wasn't done.** Deferred work and unverified assumptions are
+  stated, not omitted.
+- **Let a firmware bug fail honestly** rather than loosening the assertion.
 
-The commit messages here are long on purpose. A one-line message optimises
-for the writer; these optimise for whoever asks "why is this like this?" six
-months on, which is the actual expensive question.
+## 6. What this caught
 
-**Record findings, don't fix them into invisibility.** When the hardware is
-genuinely wrong, the house style is to write the test as though it worked,
-let it fail honestly, and comment the finding with enough detail to
-reproduce it. A green report that hides a firmware bug is worse than a red
-one that names it.
-
-## 6. Durable context: project memory and skills
-
-Two mechanisms stop each session from rediscovering the same things.
-
-**Per-directory context notes.** Each area of the codebase carried its own
-short, auto-loaded note recording that area's conventions and, more
-valuably, **the traps already paid for** — the kind of thing that otherwise
-gets rediscovered the hard way every few months.
-
-**Checked-in project skills** — encoding verification discipline rather than
-personal preference:
-
-| Skill | Job |
-|---|---|
-| single-test-case authoring | add one test case (or one step) to an existing schema's coverage |
-| whole-schema migration | port a whole schema off the old style: explore the live rig → build → verify → clean up |
-
-The rule of thumb for what belongs in these: **if you find yourself
-explaining the same thing a third time, write it down where the AI will read
-it automatically.**
-
-## 7. Rules that did the heavy lifting
-
-- **Surface disagreement early, then defer.** If the AI thinks the approach
-  is wrong, it says so once, clearly — then does what was asked. Repeated
-  re-litigation wastes the session; silent compliance ships bad decisions.
-- **Corrections mid-task are normal.** Several mechanisms here reached their
-  final shape only after three or four rounds of "no, do it this way" — one
-  retry/drain design for a collection that renumbers its members on delete
-  being the clearest case. Rapid correction beat a defended first draft
-  every time.
-- **Verify claims about the code against the code.** Names, line counts,
-  "who calls this" — all checkable, so check rather than assert. Several
-  documentation errors were caught this way (a class name that had never
-  existed; a function presented as dead that a live verification path
-  actually depended on).
-- **Say what wasn't done.** Deferred work, unverified assumptions, and
-  environment problems get stated plainly, not omitted because the summary
-  reads better without them.
-
-## 8. What this caught
-
-Concrete things the loop surfaced that a build-it-and-move-on approach would
-have shipped. These are the return on the process:
-
-| Finding | How the process caught it |
+| Finding | Caught by |
 |---|---|
 | Three structural design decisions | grilling — all three overrode the AI's recommendation |
-| A hand-written suite whose core assumptions about a collection endpoint were all wrong (creation order, a required field its own payload omitted, ids renumbering on delete) | "explore the live rig before trusting the old test" |
-| A compliance file that validated **nothing** — every property left unmarked, so garbage data passed clean | proving a check can fail before trusting that it passes |
-| A write-verification check that reported PASSED while the resource was, in fact, unmodified | a manual replay of the same request, because the pass looked too easy |
-| A whole class of verification checks silently dead for years on one write path | traced to its cause from the finding above |
-| A ticket whose own premise was wrong — following it literally would have broken the engine's self-test suite | verifying the premise instead of executing the ticket |
-| Reference data files asserting properties the hardware has never actually had | live comparison during conversion |
-| A documented class name that never existed anywhere in the code | cross-checking every documented symbol against the source |
+| An old test whose core assumptions about an endpoint were all wrong | exploring the live rig before trusting existing code |
+| A compliance file that validated **nothing** — garbage data passed clean | proving a check can fail before trusting that it passes |
+| A write check reporting PASSED while the resource was unchanged | a manual curl replay, because the pass looked too easy |
+| A ticket whose premise was wrong — following it would have broken the engine | verifying the premise instead of executing the ticket |
+| A "skipped" request variant that was still sent when reached through a sequence — including host resets | the engine audit below, proven live |
+| A generated compliance check that silently didn't run on some responses, leaving the row PASS | the engine audit below |
 
-## 9. Tooling and credits
+### A read-only audit of the engine
 
-**Claude Code** ([docs](https://docs.claude.com/en/docs/claude-code)) — the
-agent. Its automatic per-directory context loading and checked-in project
-skills are what make the durable-context part of this workflow possible.
+Once the engine had grown to about 4,800 lines across 14 modules, nobody
+had read it end to end, and its worst past bugs had all been *silent*: a
+check that verified nothing still reported PASS. So the same loop ran on the
+engine itself:
 
-**AI Hero — <https://www.aihero.dev/>** (Matt Pocock) — the source of the
-workflow skills this process is built on. The grill → spec → tickets →
-implement loop in §§2–4 is his, and the *grill-first* insight is the one
-that changed the most about how this project was built. His skills used
-here:
+1. **Grill** the audit's scope and ranking: silent false passes first, then
+   docs that no longer match the code, then gaps in the self-tests.
+2. **Audit read-only.** Each finding records a claim, a concrete scenario,
+   the code path as evidence, and a proof (by reading, or a live run the
+   maintainer approved). Nothing was changed or committed.
+3. **The maintainer decides.** 59 findings: 55 accepted, 4 rejected.
+4. **Accepted findings become tickets,** grouped by shared fix (15
+   tickets), then go through the normal ticket loop with gates 1–3.
 
-| Skill | Used for |
+Result: 24 of the 26 tickets from the audit and its follow-ups are done, and the engine's self-test
+suite went from about 215 to 523 tests, each one pinning down behaviour that
+used to be unchecked.
+
+## 7. Records
+
+Every ticket is a file on disk with a status, so progress can be counted
+rather than remembered. As of 2026-10-15:
+
+| Feature (one grill → spec → tickets pass) | Done / total |
 |---|---|
-| `grilling` / `grill-me` | Phase 1 — relentless one-question-at-a-time interrogation of a design |
-| `to-spec` | Phase 2 — synthesising the conversation into a spec |
-| `to-tickets` | Phase 2 — breaking a spec into vertical-slice tickets with blockers |
-| `implement` | Phase 3 — work a spec/ticket with TDD at agreed seams |
-| `code-review` | Phase 3 — two-axis review: repo standards, and spec conformance |
-| `writing-great-skills` | Phase 4 — writing this project's own skills |
+| The config-driven engine, including migration of every schema and the engine audit | 61 / 81 (9 more partly done) |
+| Documentation passes (design, AI workflow, code guide, YAML guide) | 18 / 18 |
+| Property-compliance redesign (generating compliance data from the specs) | 12 / 21 |
+| Validator-comparison docs | 5 / 5 |
+| Live-findings log (where firmware and spec disagree) | 0 / 8 |
+| **Total** | **96 / 133** |
 
-Related reading:
+Other records:
 
-- [Anthropic — Claude Code best practices](https://www.anthropic.com/engineering/claude-code-best-practices)
-- [Agent skills documentation](https://docs.claude.com/en/docs/agents-and-tools/agent-skills)
+- **Engine:** 14 modules, about 5,500 lines, 523 self-tests run in a
+  synthetic sandbox.
+- **Tests:** 243 test cases, 274 named request variants, and 35 sequences
+  over 42 Redfish resource areas, on 12 platforms.
+- **Project skills:** 4, each with verification built in.
+- The live-findings tickets record findings rather than code work; several
+  are waiting for a person to raise them with the firmware or spec owners.
+
+## 8. Open problems
+
+- **Several people, each with an AI, at once.** Two sessions can claim the
+  same ticket or change the same shared rig under each other.
+- **A visual editor for the YAML.** Postponed; an AI authoring skill fills
+  the gap today.
+- **Where live findings are recorded.** Moving from in-file comments to
+  tracked issues.
+
+## 9. Credits
+
+- **[Claude Code](https://docs.claude.com/en/docs/claude-code)** — the
+  agent. Per-directory rules and checked-in skills make the layered setup
+  possible.
+- **[AI Hero](https://www.aihero.dev/)** (Matt Pocock) — the workflow skills
+  this process is built on (`grill-me`, `to-spec`, `to-tickets`,
+  `implement`, `tdd`, `code-review`). The *grill-first* insight changed the
+  most about how this project was built.
+- Further reading: [Claude Code best practices](https://www.anthropic.com/engineering/claude-code-best-practices)
 
 ---
 
-## The short version
-
-**Grill the design before writing code — and expect to overrule the AI.**
-Then write it down (spec → tickets), do one slice at a time, verify against
-reality rather than against your own expectations, and record what you
-learned in the same commit. The artifacts on disk, not the conversation, are
-what carry the work between sessions.
+**The short version:** grill the design before writing code — and expect to
+overrule the AI. Write it down (spec → tickets), do one slice at a time,
+verify against reality, and feed what you learn back into the rules the AI
+reads. The files on disk, not the conversation, carry the work between
+sessions.

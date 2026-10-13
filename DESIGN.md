@@ -6,203 +6,151 @@ h1, h2, h3, h4, h5, h6 {
 
 # Design
 
-Architecture of this test suite, and *why* it exists in this form rather than
-raw pytest or the off-the-shelf DMTF validators.
-
-This is a condensed, case-study version of a larger internal design set.
-Implementation-level detail — source modules, the full YAML field reference,
-ticket-by-ticket history — has been left out on purpose. What's kept is the
-*why*.
+The concepts behind this test suite, and *why* it took this shape rather
+than raw pytest, its two predecessors, or the off-the-shelf DMTF validators.
+This is concept-level only; implementation detail is intentionally left out.
 
 ## Contents
 
 | § | Section |
 |---|---|
-| 1 | [Architecture at a glance](#architecture-at-a-glance) |
-| 2 | [Three generations of this test suite](#three-generations-of-this-test-suite) |
-| 3 | [Why not just the DMTF validators?](#why-not-just-the-dmtf-validators) |
-| 4 | [Design concepts worth naming](#design-concepts-worth-naming) |
-| 5 | [Migration outcome](#migration-outcome) |
+| 1 | [Architecture at a glance](#1-architecture-at-a-glance) |
+| 2 | [Three generations](#2-three-generations) |
+| 3 | [Why not just the DMTF validators?](#3-why-not-just-the-dmtf-validators) |
+| 4 | [Key design concepts](#4-key-design-concepts) |
+| 5 | [Feature set](#5-feature-set) |
+| 6 | [Trade-offs](#6-trade-offs) |
 
-## Architecture at a glance
+## 1. Architecture at a glance
 
-One pytest process, one live BMC, one declarative way of feeding it test cases:
+One pytest process, one live BMC, one declarative way of describing tests:
 
 ```
-CLI entrypoint   (unrecognized flags/args pass straight through to pytest)
-        │
-        ▼
-pytest collection
-        │
-        ▼
-a schema's test-definition file
-(a custom collection hook turns this into a real pytest Collector/Item tree —
- see "A pytest plugin, not a pytest replacement" below)
-        │
-        ▼
-live BMC over HTTPS
-(per-rig connection config + per-platform resource-topology data feed every
- request; no mock/fixture BMC anywhere)
-        │
-        ▼
-pass/fail per test, one report (terminal, or a self-contained HTML file)
+CLI wrapper        (unknown flags pass straight through to pytest)
+      │
+      ▼
+pytest collection  → a custom hook reads each schema's YAML file
+      │              and builds real pytest Collector / Item objects
+      ▼
+live BMC over HTTPS  (rig connection + platform inventory feed each request;
+      │               no mock BMC anywhere)
+      ▼
+one report         (a row per test step; every request shown as a
+                    replayable curl command)
 ```
 
-**A pytest plugin, not a pytest replacement.** The engine never invents its
-own execution model — every declarative construct becomes a real pytest
-object, reached through one of pytest's own hooks:
+**A pytest plugin, not a pytest replacement.** Every declarative construct
+becomes a real pytest object — a file becomes a Collector, a test case or
+step becomes an Item, a platform declaration becomes a marker. So everything
+that already understands pytest (`-m`, `-k`, exit codes, CI) keeps working,
+and old hand-written tests could run side by side during migration.
 
-| Declarative construct | Becomes | pytest hook |
+## 2. Three generations
+
+**Each generation fixed the biggest problem of the one before it.**
+
+| | Fixed | Stopped at |
 |---|---|---|
-| a schema's test file | a Collector | `pytest_collect_file` |
-| a test case / a payload / a sequence step | an Item | `item.runtest()` |
-| a platform-applicability declaration | a marker | `item.setup()` |
-| a setup/teardown declaration | a fixture-like hook | `item.setup()` / `item.teardown()` |
-| a verification declaration | an assertion | raised inside `runtest()` |
+| **1. Web test-management tool + in-house keyword runner** | Execution: regression runs became automatic | Maintenance: a language nobody else knows, one test spread over three places, numbered steps, nothing in git |
+| **2. Hand-written pytest** | Language and history: mainstream Python, reviewed in git | Scale: boilerplate files per schema, platform support wired through mixin classes, one Pass/Fail per multi-step flow |
+| **3. Config-driven (current)** | Scale: tests become data, with pytest still underneath | Cost: a field vocabulary specific to this project |
 
-That matters because everything that already understands pytest — `-m`,
-`-k`, `--collect-only`, exit codes, CI integration — keeps working
-unmodified; the declarative layer sits *on top of* pytest's own model
-instead of beside it.
+The lessons carried forward:
 
-## Three generations of this test suite
+- **From generation 1:** an in-house runner ends up maintainable only by its
+  author — so keep a mainstream runner (pytest) underneath.
+- **From generation 2:** deciding platform support in Python class hierarchies
+  doesn't scale — so declare it as data, resolved at collection time.
 
-Conformance testing here went through three forms, each replacing the one
-before because the previous shape broke down at scale.
+## 3. Why not just the DMTF validators?
 
-### 1. TestLink — manual, prose-based
+DMTF publishes free, authoritative validators. They are used too — but they
+answer a different question.
 
-Coverage lived in a web-based test-management tool: prose test cases with
-expected results, executed by a human who recorded Pass/Fail per case. It was
-good at what a management tool is good at — requirement traceability, and
-letting anyone author a case without writing code. It broke down for two
-structural reasons: **every regression run was human effort**, and **a
-linear list of prose steps cannot express a conditional** ("only on this
-platform, verify X") without either duplicating the case per branch — which
-drifts independently over time — or pushing the condition into prose, which
-becomes unverifiable: nothing confirms the tester evaluated it correctly, and
-the recorded Pass covers an unknown path.
+- **Service Validator** checks that what a service returns is valid Redfish.
+  It is **read-only** and treats a **missing property as legal**, because the
+  standard marks most properties optional. Vendor conformance is mostly the
+  opposite question: the vendor spec says a property *shall* exist.
+- **Interop Validator** can say "must exist", but it never actually sends a
+  write or invokes an action, and it has no notion of an ordered sequence
+  (create → verify → delete, poll a task, reboot and wait).
 
-That is the core reason this moved to real code at all: **conditional logic
-belongs somewhere a machine evaluates it.**
+**The division of labour:** a pure-read resource with no vendor extension is
+the validator's job. Anything with a write, an action, a vendor extension, or
+a must-exist property belongs to this suite.
 
-### 2. Hand-written pytest — real code, real branching
+## 4. Key design concepts
 
-Every schema got a hand-written test module — real execution, real
-`if`/`class` branching, strictly more expressive than anything before or
-after it, since plain code can do whatever a test needs. What broke down was
-*consistency at scale*, across roughly 40 modules:
+**Tests are data.** One YAML file per schema. Tests say *what*; the engine
+decides *how*. One engine change (curl capture, report filters, a new
+safety rule) upgrades every test at once, with no test edits. A Redfish-
+literate QA engineer can add coverage without knowing pytest.
 
-- **Platform applicability was decided at design time and wired through
-  class inheritance.** Adding a platform meant editing classes; a new
-  *combination* meant a new mixin. Fifteen of these accumulated — and by the
-  time the suite finished migrating off this style, not one was still in use.
-- **Hardware-topology data** (which sensors, fans, or devices a given
-  platform has) **was scattered** across dozens of small per-schema helper
-  modules instead of living in one place.
-- **Test-discovery conventions blocked reuse** — a test step could never
-  simply be called by another test, only wrapped in a fixture or a separate
-  helper module.
-- **Reporting was one lump per test function** — a create → verify → delete
-  flow reported as a single Pass/Fail, with no visibility into which step
-  actually failed.
+**The three-way split.** Every test is assembled from three independent
+layers:
 
-### 3. Config-driven declarative tests — the current, and only, form
+1. *which rig* — connection details;
+2. *what that hardware has* — a per-platform inventory of resource ids;
+3. *what the spec requires* — compliance data generated from the vendor
+   spec, with per-platform deltas merged automatically.
 
-Every test today is a declarative file, collected by a small custom pytest
-engine rather than pytest's native class/function discovery. A test case
-declares an id, a request path, expected-response checks, optional
-platform/risk gating, and — for a write operation — one or more payloads. A
-**Group** sequences several test cases as an ordered set of steps, threading
-data from one step's response into the next.
+That is what lets one test definition run unchanged on every platform, and
+makes a new platform a data change rather than a code change.
 
-| | TestLink | Hand-written pytest | Config-driven (current) |
-|---|---|---|---|
-| Who can author | anyone — prose | code-fluent only | anyone who knows the API + the field vocabulary |
-| Execution | manual | automated | automated |
-| Conditional logic | none (see above) | native `if`/`match` | declarative (platform tiers, per-tier deltas) |
-| Pass/fail granularity | per case, often several branches at once | per test function | per case, per payload, **and per sequence step** |
-| Requirement traceability | strongest feature | none | partial |
-| Learning curve | low to author, tedious to execute | the host language itself | this engine's own vocabulary — a real, stated cost (below) |
+**Platform tiers.** Applicability is declared against a tier hierarchy
+(common → chip generation → customer → platform). A platform added to a tier
+picks up every matching test automatically.
 
-**The cost, stated plainly.** This engine does not remove the learning curve
-of the generation before it — it *relocates* it. Raw-code knowledge transfers
-to any project in that language; this engine's field vocabulary is
-repo-specific. That trade was made deliberately: the vocabulary is smaller
-and far more uniform than the code it replaced, it's declarative enough for a
-non-programmer to contribute real coverage, and the same declaration drives
-execution, platform gating, and reporting at once.
+**Expected, not discovered.** The inventory says what a platform *should*
+have. A device it names but the BMC doesn't return is a failure, not
+something a loop silently skips.
 
-## Why not just the DMTF validators?
+**Sequences.** Multi-step flows are ordered lists of steps. Each step is its
+own report row; values pass between steps; inserting a step renumbers
+nothing; after a failure the rest are skipped instead of producing noise.
 
-The most reasonable objection to this project's existence: DMTF already
-publishes free, open-source, authoritative validators. Why write anything?
+**Write, reflect, restore.** A write is followed by a re-read to prove it
+took effect, and the original value can be put back — rigs are shared and
+must be left as found.
 
-- **Redfish Service Validator** — crawls a live service from the root and
-  checks every resource it finds against the official standard schema
-  bundle. *Is what this service returns well-formed?*
-- **Redfish Interop Validator** — checks a service against a declared
-  Interoperability Profile: which resources/properties are required or
-  recommended for a given use case. *Does it meet a stated set of
-  requirements?*
+**Safety as an orthogonal gate.** Dangerous action categories (host power,
+BMC reset, firmware update, secure-boot keys, …) each need their own
+`--allow-<category>` flag, independent of test selection. A marker
+expression alone can never trigger a reset.
 
-Both are used here too, alongside this suite rather than instead of it —
-because neither can do this job:
+**Report findings honestly.** When hardware doesn't meet the spec, the test
+is written as if it should pass and allowed to fail — never loosened to go
+green. And because compliance data comes from the spec, a red row always
+raises the question: is the firmware wrong, or the spec?
 
-| | DMTF Service Validator | DMTF Interop Validator | This suite |
-|---|---|---|---|
-| Standard-schema conformance | ✅ automatic, whole tree | partial — only what the profile lists | hand-curated — more work, less breadth |
-| Property must-exist requirement | ✗ absent ≠ failure | ✅ can declare it mandatory | ✅ the default assumption |
-| Vendor extension properties | ✗ not covered by the standard schema at all | possible, hand-authored in a second dialect | ✅ same file, same mechanism as everything else |
-| Per-platform-tier variation | ✗ | awkward — a separate profile per platform | ✅ automatic, merged deltas |
-| Hardware-topology expectations | ✗ validates only what it finds | partial | ✅ names the expected inventory per platform |
-| Write operations (PATCH/POST/PUT/DELETE) | ✗ read-only by design | states a capability, never sends a write | ✅ sends the write, verifies the result, can restore the original value |
-| Actions invoked | ✗ | ✗ | ✅ |
-| Ordered multi-step flows | ✗ | ✗ no sequencing concept | ✅ create → verify → delete, poll a task, reboot-and-wait |
-| Destructive-action safety | n/a — never writes | n/a | ✅ explicit opt-in flag per risk category, independent of test selection |
+**No mock BMC.** A mock would only test the mock. The engine itself is
+covered by its own self-test suite in a synthetic pytest sandbox, so it can
+be changed without hardware.
 
-**Where the validators are honestly better, and this project pays for it:**
-breadth. The Service Validator checks *every* resource the service exposes,
-automatically, from the official bundle; this suite's compliance data is
-hand-maintained and narrower — and if a maintained file's properties are ever
-left mismarked, it can silently validate nothing at all. *(This exact failure
-mode was caught more than once in practice — see the AI-workflow doc's "what
-this caught."*) If standard-schema conformance were the only requirement,
-this project would not be justified.
+## 5. Feature set
 
-The two are complementary, and the rule that falls out of it is simple:
-**a pure-GET resource with no vendor extension is the validator's job;
-anything with a write path, an invoked action, a vendor extension, or a
-must-exist property is this suite's.**
+The engine has 19 features. Each one names a testing pattern that the
+hand-written suite used to reinvent in Python, module by module.
 
-## Design concepts worth naming
+| Area | Features |
+|---|---|
+| **Identity and checks** | 1. a fixed test-id grammar (`<Category>.<HTTP>[.<Property\|Action>]`) · 2. verification checks: status, property patterns, compliance against the spec |
+| **Gating** | 3. platform gating by tier · 4. risk gating with a named opt-in per category |
+| **Fan-out** | 5. static fan-out over a platform's expected resource ids, nested to any depth · 6. runtime fan-out over ids discovered from a live response |
+| **Writes** | 7. restore the original value after a write · 8. non-mutating writes that send back the current value · 9. named request variants, each its own report row · 10. request bodies from files · 11. non-JSON bodies (form-encoded, multipart file upload) |
+| **Flows** | 12. sequences of steps · 13. steps that only run inside a sequence · 14. reusable non-test actions (e.g. wait for reboot) · 15. static inputs · 16. retry for flaky resources · 17. setup and teardown at three scopes |
+| **Requests** | 18. placeholder substitution that preserves types · 19. per-request headers, auth, cookies, host and environment |
 
-**The three-way split.** Every test's behavior is assembled from three
-independent layers that never overlap: *which rig* (connection info — IP,
-credentials, per-rig endpoints), *what that hardware actually has* (a
-per-platform inventory of resource ids), and *what the spec requires of it*
-(the compliance data, with per-platform-tier deltas merged automatically,
-most-specific wins). Keeping these three separate is what lets the same test
-definition run unmodified against ten different physical machines.
+The test files use these features unevenly. Expected-id fan-out appears in
+143 of the 243 test cases and named variants in 98; retries in 6.
 
-**Safety is a first-class, orthogonal gate.** A small number of action
-categories — host power control, firmware update, a full BMC reset, a BIOS
-password change, a UEFI secure-boot key change, and similar — are dangerous
-enough on real hardware that none run by default under any test-selection
-expression. Each needs its own explicit command-line opt-in, deliberately
-independent of which tests were otherwise selected, so a marker expression
-alone can never trigger a factory reset.
+## 6. Trade-offs
 
-**A finding is reported, not hidden.** When live hardware genuinely doesn't
-do what the spec requires, the house style is to write the test as though it
-should pass, let it fail honestly, and record the finding rather than
-quietly loosening the check. A green report that hides a real firmware gap
-is worse than a red one that names it.
-
-## Migration outcome
-
-The hand-written generation is fully retired — no hand-written test module
-remains anywhere in the suite; every test that runs today is config-driven.
-The migration happened incrementally, schema by schema, running both styles
-side by side in the same test session throughout, rather than as one
-disruptive cutover.
+- **The learning curve moved, it didn't vanish.** Raw-pytest knowledge
+  transfers anywhere; this engine's field names are project-specific. The
+  syntax is plain YAML, though, and AI skills encode the vocabulary.
+- **Narrower standard-schema coverage than the Service Validator.** If
+  standard-schema conformance were the only requirement, this project would
+  not be justified.
+- **An escape hatch is kept.** Anything no field can express is a plain
+  Python function — used only after checking that no field fits.

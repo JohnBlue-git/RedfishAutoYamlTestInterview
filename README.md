@@ -1,89 +1,104 @@
-# Insyde Redfish Automated Test — Case Study
+# Redfish Conformance Test Engine — Case Study
 
-> This is a documentation-only excerpt of a live-hardware conformance-testing
-> framework built at Insyde Software. Source code, test definitions, live
-> credentials, and internal issue tracking have all been removed; what's left
-> is the design story, the AI-assisted engineering process behind it, and how
-> the tool is used day to day. Commands below illustrate the CLI's shape —
-> the entrypoint script itself isn't included in this excerpt.
+> A documentation-only case study of a live-hardware conformance-testing
+> framework. No source code, test definitions, or product data are included —
+> only the concepts behind the design and the AI-assisted process used to
+> build it.
+
+## What is Redfish?
+
+Every data-center server has a **BMC** (Baseboard Management Controller): a
+small, separate computer on the motherboard that lets an administrator
+manage the server remotely — power it on or off, read temperatures and fan
+speeds, update firmware, manage user accounts — even when the main operating
+system is down. **OpenBMC** is a widely used open-source firmware stack for
+BMCs.
+
+**Redfish** is the industry-standard API for talking to a BMC, published by
+the DMTF standards body as the modern replacement for the older IPMI
+protocol. It is a RESTful API — JSON over HTTPS — organised as a tree of
+resources:
+
+```
+/redfish/v1/                 service root
+├── Systems/                 the host computer: power state, boot, CPUs, memory
+├── Chassis/                 physical enclosure: sensors, fans, power supplies
+├── Managers/                the BMC itself: network, logs, reset
+├── AccountService/          users and roles
+└── UpdateService/           firmware updates
+```
+
+Each resource follows a published **schema** that defines its properties. A
+client reads with `GET`, changes settings with `PATCH`, creates and deletes
+with `POST`/`DELETE`, and triggers operations (such as a reset) by invoking
+**actions**. Hardware vendors may add their own **OEM extensions** on top of
+the standard schemas, and often publish their own spec saying which
+properties their platforms *must* support.
 
 ## What it is
 
-Automated conformance testing for a hardware vendor's schema, property, and
-action extensions to **Redfish** — the industry-standard REST API server
-hardware exposes for power, thermal, storage, and firmware-update control —
-on OpenBMC-based server-management firmware. Every test runs against **real,
-live hardware** over HTTPS; there is no mock or simulated BMC anywhere in the
-suite, across two hardware generations spanning multiple CPU and GPU vendor
-platform configurations.
+Automated conformance testing for a vendor's Redfish implementation on
+OpenBMC-based firmware: does the BMC actually implement what the standard
+and the vendor's spec require?
+
+The suite covers standard properties, vendor (OEM) extensions, writes, and
+actions, across many hardware platforms. Every test runs against **real
+hardware** over HTTPS — there is no mock BMC.
+
+## The idea in one paragraph
+
+Tests are **data, not code**. Each Redfish schema gets one declarative YAML
+file; a small engine built as a **pytest plugin** turns it into ordinary
+pytest tests. Which rig, what that hardware has, and what the spec requires
+are kept as three separate layers, so the same test runs unchanged on every
+platform. Destructive actions (reboots, firmware updates, key changes) never
+run unless explicitly opted into.
 
 ## Why it exists
 
-DMTF, the standards body behind Redfish, publishes free, open-source
-validators — the **Service Validator** and the **Interop Validator**. Both
-are used here too, but neither can answer the question this project exists
-to answer, for two structural reasons:
+- **Every build, every platform.** Hundreds of checks per firmware build, on
+  many platforms, can't be done by hand.
+- **The off-the-shelf validators can't answer the question.** DMTF's Service
+  Validator is read-only and treats a missing property as legal; the vendor
+  spec says properties *must* exist, and some must be *written* and
+  *invoked*, not just read.
+- **The previous two generations stopped scaling.** An in-house keyword
+  runner was hard to maintain; hand-written pytest was hard to scale.
 
-- The Service Validator is **GET-only** and treats a **missing property as
-  legal** — the standard schema marks almost everything optional, so it can
-  confirm *"is what you returned well-formed?"* but never *"did you return it
-  at all?"*. Vendor conformance is largely the second question: the vendor's
-  own spec says a property **shall** exist, and a platform quietly omitting
-  it is a real, recurring failure mode the validator simply cannot see.
-- The Interop Validator can express "this must exist," but its model stops at
-  the property — it can say a property is writable without saying what a
-  write must send, return, or reflect, and it has no way to express an
-  *ordered sequence* of operations (create → verify → delete, poll a
-  long-running task, reboot-and-wait).
+## By the numbers
 
-Full comparison: [`DESIGN.md`](DESIGN.md#why-not-just-the-dmtf-validators).
-
-## Scale
+As of 2026-10-15:
 
 | | |
 |---|---|
-| Schemas covered | 41 resource types, ~75 test definition files |
-| Tests collected per run | ~690 |
-| Hand-written test modules fully retired in favor of the current engine | ~40, across ~18 schemas |
-| Engine's own self-tests (run without any live hardware) | ~215 |
-| Destructive-action categories requiring explicit opt-in | 7 |
-| Platform coverage | 2 hardware generations, 10 concrete platform configurations |
+| Redfish resource areas covered | 42, in 76 test-definition files |
+| Test cases | 243 — plus 274 named request variants and 35 multi-step sequences (174 steps) |
+| By HTTP method | GET 100 · PATCH 78 · POST 50 · DELETE 14 · PUT 1 |
+| Property-compliance files, generated from the specs | 111 |
+| Hardware platforms | 12, across 2 hardware generations |
+| One platform's run | about 280–650 tests in 5–30 minutes, depending on the hardware |
+| Engine features | 19 (see [`DESIGN.md`](DESIGN.md#5-feature-set)) |
+| Opt-in risk categories | 11 |
+| Engine | 14 modules, ~5,500 lines of Python, covered by 523 self-tests |
+| Tickets | 96 of 133 done, across 5 features (see [`AI_WORKFLOW.md`](AI_WORKFLOW.md#7-records)) |
 
-## How it's used
+## How it's used (illustrative)
 
-A single CLI wraps pytest; every flag or argument it doesn't recognize passes
-straight through, so the full native pytest vocabulary (`-m`, `-k`, `-v`, …)
-always stacks on top of it.
+A single CLI wraps pytest, so native pytest options still work:
 
 ```bash
-# Full suite against the configured rig, terminal output
-python3 run_tests.py
-
-# Same, plus a self-contained HTML report
-python3 run_tests.py --html
-
-# One schema, filtered to one platform
-python3 run_tests.py -m "<platform> and Chassis"
-
-# A destructive action stays off by default no matter what's selected -
-# it needs its own explicit, named opt-in
-python3 run_tests.py --allow-bmc-reset tests/Manager/
+python3 run_tests.py --html          # full suite + self-contained HTML report
+python3 run_tests.py -m Chassis      # one schema
+python3 run_tests.py -k ".GET"       # read-only tests (the id embeds the HTTP method)
+python3 run_tests.py --allow-bmc-reset tests/Manager/   # risky action: explicit opt-in
 ```
-
-That last pattern is a deliberate safety choice, not an afterthought: a
-handful of action categories (host power control, a full BMC reset, a BIOS
-password change, a UEFI secure-boot key change, …) each require their own
-`--allow-<category>` flag, independent of test selection entirely — so a
-marker expression alone can never trigger a factory reset. More in
-[`DESIGN.md`](DESIGN.md).
 
 ## Read next
 
-- **[`PROJECT.html`](https://htmlpreview.github.io/?https://github.com/JohnBlue-git/RedfishAutoYamlTestInterview/blob/main/PROJECT.html)** — the whole case study as a single
-  visual page: overview, architecture, and the AI-workflow narrative together (open in a browser).
-- **[`DESIGN.md`](DESIGN.md)** — the architecture, the three
-  generations this suite evolved through, why the off-the-shelf validators
-  fall short, and the design concepts that came out of it (prose form).
-- **[`AI_WORKFLOW.md`](AI_WORKFLOW.md)** — how this was actually
-  built working with an AI pair: the process, what it caught, and what it
-  cost (prose form).
+- **[`PROJECT.html`](https://htmlpreview.github.io/?https://github.com/JohnBlue-git/RedfishAutoYamlTestInterview/blob/main/PROJECT.html)**
+  — the whole case study as one visual page (open in a browser).
+- **[`DESIGN.md`](DESIGN.md)** — the architecture and the key design
+  concepts, and why it took this shape.
+- **[`AI_WORKFLOW.md`](AI_WORKFLOW.md)** — how it was built with an AI: the
+  grill → spec → tickets → implement loop, and the gates that keep
+  AI-written changes safe on shared hardware.
