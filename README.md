@@ -67,20 +67,20 @@ run unless explicitly opted into.
 
 ## By the numbers
 
-As of 2026-10-15:
+As of 2026-10-20:
 
 | | |
 |---|---|
-| Redfish resource areas covered | 42, in 76 test-definition files |
-| Test cases | 243 — plus 274 named request variants and 35 multi-step sequences (174 steps) |
-| By HTTP method | GET 100 · PATCH 78 · POST 50 · DELETE 14 · PUT 1 |
+| Redfish schemas covered | 72 (standard and OEM), in 76 test-definition files across 42 resource areas |
+| Test cases | 244 — plus 271 named request variants and 36 multi-step sequences (177 steps) |
+| By HTTP method | GET 101 · PATCH 77 · POST 51 · DELETE 14 · PUT 1 |
 | Property-compliance files, generated from the specs | 111 |
 | Hardware platforms | 12, across 2 hardware generations |
 | One platform's run | about 280–650 tests in 5–30 minutes, depending on the hardware |
 | Engine features | 19 (see [`DESIGN.md`](DESIGN.md#5-feature-set)) |
 | Opt-in risk categories | 11 |
 | Engine | 14 modules, ~5,500 lines of Python, covered by 523 self-tests |
-| Tickets | 96 of 133 done, across 5 features (see [`AI_WORKFLOW.md`](AI_WORKFLOW.md#7-records)) |
+| Tickets | 84 of 132 done, across 5 features (see [`AI_WORKFLOW.md`](AI_WORKFLOW.md#7-records)) |
 
 ## How it's used (illustrative)
 

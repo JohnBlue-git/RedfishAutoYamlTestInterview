@@ -285,20 +285,20 @@ python3 run_tests.py -m Chassis      # one schema
 python3 run_tests.py -k ".GET"       # read-only tests
 python3 run_tests.py --allow-bmc-reset tests/Manager/   # risky action: explicit opt-in</pre>
 
-    <h3 style="margin-top:1.6rem">By the numbers <span style="font-weight:400;font-size:0.8rem;color:var(--text-faint)">as of 2026-10-15</span></h3>
+    <h3 style="margin-top:1.6rem">By the numbers <span style="font-weight:400;font-size:0.8rem;color:var(--text-faint)">as of 2026-10-20</span></h3>
     <div class="stat-grid">
-      <div class="stat-card"><div class="num">42</div><div class="lbl">Redfish resource areas, in 76 test-definition files</div></div>
-      <div class="stat-card"><div class="num">243</div><div class="lbl">test cases, plus 274 named request variants</div></div>
-      <div class="stat-card"><div class="num">35</div><div class="lbl">multi-step sequences, 174 steps in all</div></div>
+      <div class="stat-card"><div class="num">72</div><div class="lbl">Redfish schemas covered, in 76 test-definition files across 42 resource areas</div></div>
+      <div class="stat-card"><div class="num">244</div><div class="lbl">test cases, plus 271 named request variants</div></div>
+      <div class="stat-card"><div class="num">36</div><div class="lbl">multi-step sequences, 177 steps in all</div></div>
       <div class="stat-card"><div class="num">111</div><div class="lbl">property-compliance files, generated from the specs</div></div>
       <div class="stat-card"><div class="num">12</div><div class="lbl">hardware platforms, across 2 generations</div></div>
       <div class="stat-card"><div class="num">19</div><div class="lbl">engine features</div></div>
       <div class="stat-card"><div class="num">11</div><div class="lbl">opt-in risk categories</div></div>
       <div class="stat-card"><div class="num">523</div><div class="lbl">engine self-tests, for 14 modules (~5,500 lines)</div></div>
-      <div class="stat-card"><div class="num">96 / 133</div><div class="lbl">tickets done, across 5 features</div></div>
+      <div class="stat-card"><div class="num">84 / 132</div><div class="lbl">tickets done, across 5 features</div></div>
     </div>
     <p style="font-size:0.85rem;color:var(--text-muted)">
-      By HTTP method: GET 100 · PATCH 78 · POST 50 · DELETE 14 · PUT 1. One
+      By HTTP method: GET 101 · PATCH 77 · POST 51 · DELETE 14 · PUT 1. One
       platform's run is about 280–650 tests in 5–30 minutes, depending on the
       hardware.
     </p>
@@ -329,6 +329,25 @@ python3 run_tests.py --allow-bmc-reset tests/Manager/   # risky action: explicit
       that already understands pytest — <code>-m</code>, <code>-k</code>,
       exit codes, CI — keeps working, and old hand-written tests could run
       side by side during migration.
+    </p>
+
+    <h3 style="margin-top:1.6rem">Two phases, with a wall between them</h3>
+    <p>
+      pytest owns the loop; the engine only answers when pytest asks. And
+      because pytest collects every test before running any, the engine works
+      in two phases:
+    </p>
+    <pre class="block">COLLECTION (no BMC, no network)            EXECUTION (live BMC)
+  read each schema's YAML file               fill in placeholders
+  build the Collector / Item tree            send the request
+  fan out over the platform's                run the checks
+    expected resource ids                    run a sequence's steps in order
+  apply platform markers</pre>
+    <p>
+      One consequence shapes the field vocabulary: fan-out at collection time
+      can only use the platform inventory, never a live response. Ids that
+      only a live <code>GET</code> can reveal need a separate runtime loop
+      inside a single test.
     </p>
 
   </section>
@@ -441,7 +460,7 @@ python3 run_tests.py --allow-bmc-reset tests/Manager/   # risky action: explicit
     </div>
     <p style="font-size:0.85rem;color:var(--text-muted)">
       The test files use these features unevenly. Expected-id fan-out appears
-      in 143 of the 243 test cases and named variants in 98; retries in 6.
+      in 143 of the 244 test cases and named variants in 98; retries in 13.
     </p>
   </section>
 
@@ -475,7 +494,12 @@ Improvement loop  a mistake or a correction → a rules line, a skill edit, or m
  ├─ global rules                  ├─ project rules (root CLAUDE.md)
  ├─ global workflow skills        ├─ per-folder rules (&lt;folder&gt;/CLAUDE.md)
  └─ memory                        ├─ project skills (.claude/skills/)
-                                  └─ skill adapters (.claude/agents/)</pre>
+                                  └─ skill adapters (.claude/agents/)
+
+        all of it feeds → Claude Code (the main agent), which
+           ├─ spawns sub-agents   fresh AIs for parallel search or review
+           ├─ reads and writes    the feature's spec, tickets and ledger on disk
+           └─ talks to            the live BMC (curl, pytest)</pre>
     <ul class="tight">
       <li><b>Per-folder rules</b> record each area's conventions and the traps already paid for.</li>
       <li><b>Project skills</b> (4) encode repeatable jobs with verification built in: writing a test case from a plain-language description or a curl command, onboarding a new platform, refreshing a platform's inventory from its live rig (read-only, each change adopted deliberately), and regenerating compliance data from the spec.</li>
@@ -486,6 +510,49 @@ Improvement loop  a mistake or a correction → a rules line, a skill edit, or m
       <b>If you explain the same thing a third time, write it down where the
       AI will read it automatically.</b>
     </p>
+
+    <h3 style="margin-top:2rem">What goes in, what comes out</h3>
+    <p>
+      Everything the agent knows comes in as files or messages, and everything
+      it does goes out as files or messages. It keeps nothing between sessions
+      except what it writes to a file.
+    </p>
+    <pre class="block" style="line-height:1.25">        INPUT                                            OUTPUT
+┌────────────────────────┐                         ┌────────────────────────┐
+│ Rules                  │─┐                    ┌─►│ Work                   │
+│ root + per-folder      │ │                    │  │ code · test YAML       │
+│ CLAUDE.md              │ │                    │  │ compliance data · docs │
+└────────────────────────┘ │                    │  └────────────────────────┘
+┌────────────────────────┐ │                    │  ┌────────────────────────┐
+│ Adapters               │─┤                    ├─►│ Ticket state           │
+│ where tickets, labels  │ │                    │  │ status · checkboxes    │
+│ and docs live          │ │                    │  │ comments · ledger      │
+└────────────────────────┘ │                    │  └────────────────────────┘
+┌────────────────────────┐ │                    │  ┌────────────────────────┐
+│ Skills                 │─┤                    ├─►│ To you                 │
+│ project + global       │ │  ╔══════════════╗  │  │ questions · proof      │
+│                        │ │  ║              ║  │  │ gates 1 / 2 / 3        │
+└────────────────────────┘ │  ║   AI AGENT   ║  │  └────────────────────────┘
+┌────────────────────────┐ ├─►║              ║──┤  ┌────────────────────────┐
+│ Tickets &amp; spec         │─┤  ║ Claude Code  ║  ├─►│ To the BMC             │
+│ one folder per feature │ │  ║              ║  │  │ curl · pytest          │
+│                        │ │  ╚══════════════╝  │  │ after you approve      │
+└────────────────────────┘ │                    │  └────────────────────────┘
+┌────────────────────────┐ │                    │  ┌────────────────────────┐
+│ Memory                 │─┤                    ├─►│ Lessons                │
+│ personal               │ │                    │  │ memory (just you)      │
+└────────────────────────┘ │                    │  │ CLAUDE.md · skills     │
+┌────────────────────────┐ │                    │  └────────────────────────┘
+│ You &amp; the rig          │─┘                    │  ┌────────────────────────┐
+│ requests · answers     │                      └─►│ Sub-agents             │
+│ BMC responses          │                         │ search · review        │
+└────────────────────────┘                         │ → one report back      │
+                                                   └────────────────────────┘</pre>
+    <ul class="tight">
+      <li><b>Left to right, one session.</b> The agent reads the left side, does the work, and produces the right side.</li>
+      <li><b>Right back to left, across sessions.</b> The right side becomes the next session's left side: an updated ticket, a new rules line, a saved memory. That loop is the only way the agent "remembers". If it skips writing ticket state, the next session believes the ticket is still open.</li>
+      <li><b>Memory is the one personal piece.</b> A correction saved only there changes only your agent; if a teammate's agent should follow it too, it goes in a <code>CLAUDE.md</code> line in git.</li>
+    </ul>
 
     <h3 style="margin-top:2rem">Grill the design before any code</h3>
     <p>
@@ -558,16 +625,16 @@ Improvement loop  a mistake or a correction → a rules line, a skill edit, or m
     </div>
 
     <h3 style="margin-top:2rem">Records</h3>
-    <p>Every ticket is a file on disk with a status, so progress can be counted rather than remembered. As of 2026-10-15:</p>
+    <p>Every ticket is a file on disk with a status, so progress can be counted rather than remembered. As of 2026-10-20:</p>
     <div class="table-wrap">
       <table class="simple">
         <tr><th>Feature (one grill → spec → tickets pass)</th><th>Done / total</th></tr>
-        <tr><td>The config-driven engine, including migration of every schema and the engine audit</td><td>61 / 81 (9 more partly done)</td></tr>
+        <tr><td>The config-driven engine, including migration of every schema and the engine audit</td><td>53 / 79 (12 more partly done)</td></tr>
         <tr><td>Documentation passes (design, AI workflow, code guide, YAML guide)</td><td>18 / 18</td></tr>
-        <tr><td>Property-compliance redesign (generating compliance data from the specs)</td><td>12 / 21</td></tr>
-        <tr><td>Validator-comparison docs</td><td>5 / 5</td></tr>
-        <tr><td>Live-findings log (where firmware and spec disagree)</td><td>0 / 8</td></tr>
-        <tr><td><b>Total</b></td><td><b>96 / 133</b></td></tr>
+        <tr><td>Property-compliance redesign (generating compliance data from the specs)</td><td>11 / 21 (4 more partly done)</td></tr>
+        <tr><td>Validator-comparison docs</td><td>2 / 5 (3 more partly done)</td></tr>
+        <tr><td>Live-findings log (where firmware and spec disagree)</td><td>0 / 9</td></tr>
+        <tr><td><b>Total</b></td><td><b>84 / 132</b></td></tr>
       </table>
     </div>
     <p style="font-size:0.85rem;color:var(--text-muted)">

@@ -70,6 +70,11 @@ files it reads automatically, in layers:
  ├─ global workflow skills        ├─ per-folder rules (<folder>/CLAUDE.md)
  └─ memory                        ├─ project skills (.claude/skills/)
                                   └─ skill adapters (.claude/agents/)
+
+        all of it feeds → Claude Code (the main agent), which
+           ├─ spawns sub-agents   fresh AIs for parallel search or review
+           ├─ reads and writes    the feature's spec, tickets and ledger on disk
+           └─ talks to            the live BMC (curl, pytest)
 ```
 
 - **Per-folder rules** record each area's conventions and, more valuably,
@@ -90,6 +95,59 @@ own skills folder (the adapters are already in git), write their own global
 rules — the author's has four: think before coding, simplicity first,
 surgical changes, and goal-driven execution with a checkable definition of
 done — and let memory build up as they correct the AI.
+
+### What goes in, what comes out
+
+Everything the agent knows comes in as files or messages, and everything it
+does goes out as files or messages. It keeps nothing between sessions except
+what it writes to a file.
+
+```
+        INPUT                                            OUTPUT
+┌────────────────────────┐                         ┌────────────────────────┐
+│ Rules                  │─┐                    ┌─►│ Work                   │
+│ root + per-folder      │ │                    │  │ code · test YAML       │
+│ CLAUDE.md              │ │                    │  │ compliance data · docs │
+└────────────────────────┘ │                    │  └────────────────────────┘
+┌────────────────────────┐ │                    │  ┌────────────────────────┐
+│ Adapters               │─┤                    ├─►│ Ticket state           │
+│ where tickets, labels  │ │                    │  │ status · checkboxes    │
+│ and docs live          │ │                    │  │ comments · ledger      │
+└────────────────────────┘ │                    │  └────────────────────────┘
+┌────────────────────────┐ │                    │  ┌────────────────────────┐
+│ Skills                 │─┤                    ├─►│ To you                 │
+│ project + global       │ │  ╔══════════════╗  │  │ questions · proof      │
+│                        │ │  ║              ║  │  │ gates 1 / 2 / 3        │
+└────────────────────────┘ │  ║   AI AGENT   ║  │  └────────────────────────┘
+┌────────────────────────┐ ├─►║              ║──┤  ┌────────────────────────┐
+│ Tickets & spec         │─┤  ║ Claude Code  ║  ├─►│ To the BMC             │
+│ one folder per feature │ │  ║              ║  │  │ curl · pytest          │
+│                        │ │  ╚══════════════╝  │  │ after you approve      │
+└────────────────────────┘ │                    │  └────────────────────────┘
+┌────────────────────────┐ │                    │  ┌────────────────────────┐
+│ Memory                 │─┤                    ├─►│ Lessons                │
+│ personal               │ │                    │  │ memory (just you)      │
+└────────────────────────┘ │                    │  │ CLAUDE.md · skills     │
+┌────────────────────────┐ │                    │  └────────────────────────┘
+│ You & the rig          │─┘                    │  ┌────────────────────────┐
+│ requests · answers     │                      └─►│ Sub-agents             │
+│ BMC responses          │                         │ search · review        │
+└────────────────────────┘                         │ → one report back      │
+                                                   └────────────────────────┘
+```
+
+Read it in two directions:
+
+- **Left to right, one session.** The agent reads the left side, does the
+  work, and produces the right side.
+- **Right back to left, across sessions.** The right side becomes the next
+  session's left side: an updated ticket, a new rules line, a saved memory.
+  That loop is the only way the agent "remembers". If it skips writing
+  ticket state, the next session believes the ticket is still open.
+
+Memory is the one personal piece. A correction saved only there changes only
+your agent; if a teammate's agent should follow it too, it goes in a
+`CLAUDE.md` line in git.
 
 ## 3. Grill the design before any code
 
@@ -207,23 +265,23 @@ used to be unchecked.
 ## 7. Records
 
 Every ticket is a file on disk with a status, so progress can be counted
-rather than remembered. As of 2026-10-15:
+rather than remembered. As of 2026-10-20:
 
 | Feature (one grill → spec → tickets pass) | Done / total |
 |---|---|
-| The config-driven engine, including migration of every schema and the engine audit | 61 / 81 (9 more partly done) |
+| The config-driven engine, including migration of every schema and the engine audit | 53 / 79 (12 more partly done) |
 | Documentation passes (design, AI workflow, code guide, YAML guide) | 18 / 18 |
-| Property-compliance redesign (generating compliance data from the specs) | 12 / 21 |
-| Validator-comparison docs | 5 / 5 |
-| Live-findings log (where firmware and spec disagree) | 0 / 8 |
-| **Total** | **96 / 133** |
+| Property-compliance redesign (generating compliance data from the specs) | 11 / 21 (4 more partly done) |
+| Validator-comparison docs | 2 / 5 (3 more partly done) |
+| Live-findings log (where firmware and spec disagree) | 0 / 9 |
+| **Total** | **84 / 132** |
 
 Other records:
 
 - **Engine:** 14 modules, about 5,500 lines, 523 self-tests run in a
   synthetic sandbox.
-- **Tests:** 243 test cases, 274 named request variants, and 35 sequences
-  over 42 Redfish resource areas, on 12 platforms.
+- **Tests:** 244 test cases, 271 named request variants, and 36 sequences
+  covering 72 Redfish schemas in 42 resource areas, on 12 platforms.
 - **Project skills:** 4, each with verification built in.
 - The live-findings tickets record findings rather than code work; several
   are waiting for a person to raise them with the firmware or spec owners.

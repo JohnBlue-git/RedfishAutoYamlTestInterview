@@ -45,6 +45,23 @@ step becomes an Item, a platform declaration becomes a marker. So everything
 that already understands pytest (`-m`, `-k`, exit codes, CI) keeps working,
 and old hand-written tests could run side by side during migration.
 
+**Two phases, with a wall between them.** pytest owns the loop; the engine
+only answers when pytest asks. And because pytest collects every test before
+running any, the engine works in two phases:
+
+```
+COLLECTION (no BMC, no network)            EXECUTION (live BMC)
+  read each schema's YAML file               fill in placeholders
+  build the Collector / Item tree            send the request
+  fan out over the platform's                run the checks
+    expected resource ids                    run a sequence's steps in order
+  apply platform markers
+```
+
+One consequence shapes the field vocabulary: fan-out at collection time can
+only use the platform inventory, never a live response. Ids that only a live
+`GET` can reveal need a separate runtime loop inside a single test.
+
 ## 2. Three generations
 
 **Each generation fixed the biggest problem of the one before it.**
@@ -142,7 +159,7 @@ hand-written suite used to reinvent in Python, module by module.
 | **Requests** | 18. placeholder substitution that preserves types · 19. per-request headers, auth, cookies, host and environment |
 
 The test files use these features unevenly. Expected-id fan-out appears in
-143 of the 243 test cases and named variants in 98; retries in 6.
+143 of the 244 test cases and named variants in 98; retries in 13.
 
 ## 6. Trade-offs
 
