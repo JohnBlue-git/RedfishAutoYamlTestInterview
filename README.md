@@ -67,20 +67,20 @@ run unless explicitly opted into.
 
 ## By the numbers
 
-As of 2026-10-20:
+As of 2026-10-29:
 
 | | |
 |---|---|
-| Redfish schemas covered | 72 (standard and OEM), in 76 test-definition files across 42 resource areas |
-| Test cases | 244 — plus 271 named request variants and 36 multi-step sequences (177 steps) |
-| By HTTP method | GET 101 · PATCH 77 · POST 51 · DELETE 14 · PUT 1 |
+| Redfish schemas covered | 76 (standard and OEM), in 86 test-definition files across 42 resource areas |
+| Test cases | 297 — plus 325 named request variants and 60 multi-step sequences (283 steps) |
+| By HTTP method | GET 118 · PATCH 81 · POST 78 · DELETE 19 · PUT 1 |
 | Property-compliance files, generated from the specs | 111 |
 | Hardware platforms | 12, across 2 hardware generations |
 | One platform's run | about 280–650 tests in 5–30 minutes, depending on the hardware |
 | Engine features | 19 (see [`DESIGN.md`](DESIGN.md#5-feature-set)) |
-| Opt-in risk categories | 11 |
-| Engine | 14 modules, ~5,500 lines of Python, covered by 523 self-tests |
-| Tickets | 84 of 132 done, across 5 features (see [`AI_WORKFLOW.md`](AI_WORKFLOW.md#7-records)) |
+| Opt-in risk categories | 13 |
+| Engine | 14 modules, ~5,500 lines of Python, covered by 527 self-tests |
+| Tickets | 103 of 154 done, across 6 features (see [`AI_WORKFLOW.md`](AI_WORKFLOW.md#7-records)) |
 
 ## How it's used (illustrative)
 
@@ -92,6 +92,83 @@ python3 run_tests.py -m Chassis      # one schema
 python3 run_tests.py -k ".GET"       # read-only tests (the id embeds the HTTP method)
 python3 run_tests.py --allow-bmc-reset tests/Manager/   # risky action: explicit opt-in
 ```
+
+## Visualization
+
+Two views: one for the results of a run, one for the design of the tests.
+Identifying details (company, rig address, platform names, local paths) and
+the run's result counts are masked in these screenshots.
+
+### Results: the HTML report
+
+Each run writes one self-contained HTML page, built on pytest-html. Every
+test step is its own row. Rows can be filtered by category, HTTP operation,
+and schema, and each row expands to show the request as a replayable curl
+command.
+
+![Report overview: environment, filters, and result rows](images/html-report/1-overview.png)
+
+A multi-step sequence shows each step as its own row (`step n/5`):
+
+![A five-step sequence, one row per step](images/html-report/3-group-steps.png)
+
+<details>
+<summary>More report views: filters, failed, warning, and skipped rows</summary>
+
+Filtered to one category and one operation:
+
+![Report filtered to Chassis GET](images/html-report/2-filtered.png)
+
+A failed row lists every missing property, not only the first:
+
+![Failed row listing each missing property](images/html-report/4-failed-row.png)
+
+A warning row: the request as curl, and properties the response has but the
+schema does not declare:
+
+![Warning row with curl command and undeclared properties](images/html-report/5-warning-row.png)
+
+A skipped row: an earlier step in the same sequence failed, so this step was
+not sent. The report still shows the curl command it would have sent:
+
+![Skipped row with the unsent curl command](images/html-report/6-skipped-row.png)
+
+</details>
+
+### Design: the YAML test visualizer
+
+A command reads every test-definition file and writes one HTML page with a
+flowchart for each sequence. It reads only the YAML, so it needs no BMC.
+
+- Blue boxes are requests, green boxes are Python helper steps, and yellow
+  boxes are static inputs.
+- Grey edges show step order. Orange edges show which values pass from one
+  step to the next.
+- A sidebar lists the sequences by resource area and file.
+
+![Visualizer overview: sidebar and one sequence's flowchart](images/yaml-visualizer/1-overview.png)
+
+A step that reads a value that no earlier step writes is flagged before any
+run on hardware. Here, a typo in a key name:
+
+![A teardown step flagged for an unresolved read](images/yaml-visualizer/4-unresolved-read.png)
+
+<details>
+<summary>More visualizer views: test-case list, test-case diagram, Mermaid source</summary>
+
+Each file's test cases and their named request variants:
+
+![Test cases of one schema and their variants](images/yaml-visualizer/6-test-case-list.png)
+
+A single test case with its own setup steps:
+
+![Flowchart of one test case's setup](images/yaml-visualizer/7-test-case-diagram.png)
+
+Each diagram's Mermaid source can be copied into a code review or a wiki:
+
+![Copyable Mermaid source under a diagram](images/yaml-visualizer/5-mermaid-source.png)
+
+</details>
 
 ## Read next
 

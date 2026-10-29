@@ -179,6 +179,11 @@
   .stat-card { border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem 1rem; background: var(--surface); }
   .stat-card .num { font-size: 1.5rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
   .stat-card .lbl { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem; }
+  .shot { margin: 1rem 0 1.4rem; }
+  .shot img { display: block; max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .shot figcaption { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; }
+  details.more { margin: 0.6rem 0 1.2rem; }
+  details.more summary { cursor: pointer; font-size: 0.88rem; color: var(--accent); }
 </style>
 </head>
 <body>
@@ -206,6 +211,7 @@
       <a href="#validators">vs. DMTF validators</a>
       <a href="#concepts">Key concepts</a>
       <a href="#features">Features</a>
+      <a href="#visualization">Visualization</a>
       <a href="#ai-workflow">Working with AI</a>
       <a href="#credits">Credits</a>
     </nav>
@@ -285,20 +291,20 @@ python3 run_tests.py -m Chassis      # one schema
 python3 run_tests.py -k ".GET"       # read-only tests
 python3 run_tests.py --allow-bmc-reset tests/Manager/   # risky action: explicit opt-in</pre>
 
-    <h3 style="margin-top:1.6rem">By the numbers <span style="font-weight:400;font-size:0.8rem;color:var(--text-faint)">as of 2026-10-20</span></h3>
+    <h3 style="margin-top:1.6rem">By the numbers <span style="font-weight:400;font-size:0.8rem;color:var(--text-faint)">as of 2026-10-29</span></h3>
     <div class="stat-grid">
-      <div class="stat-card"><div class="num">72</div><div class="lbl">Redfish schemas covered, in 76 test-definition files across 42 resource areas</div></div>
-      <div class="stat-card"><div class="num">244</div><div class="lbl">test cases, plus 271 named request variants</div></div>
-      <div class="stat-card"><div class="num">36</div><div class="lbl">multi-step sequences, 177 steps in all</div></div>
+      <div class="stat-card"><div class="num">76</div><div class="lbl">Redfish schemas covered, in 86 test-definition files across 42 resource areas</div></div>
+      <div class="stat-card"><div class="num">297</div><div class="lbl">test cases, plus 325 named request variants</div></div>
+      <div class="stat-card"><div class="num">60</div><div class="lbl">multi-step sequences, 283 steps in all</div></div>
       <div class="stat-card"><div class="num">111</div><div class="lbl">property-compliance files, generated from the specs</div></div>
       <div class="stat-card"><div class="num">12</div><div class="lbl">hardware platforms, across 2 generations</div></div>
       <div class="stat-card"><div class="num">19</div><div class="lbl">engine features</div></div>
-      <div class="stat-card"><div class="num">11</div><div class="lbl">opt-in risk categories</div></div>
-      <div class="stat-card"><div class="num">523</div><div class="lbl">engine self-tests, for 14 modules (~5,500 lines)</div></div>
-      <div class="stat-card"><div class="num">84 / 132</div><div class="lbl">tickets done, across 5 features</div></div>
+      <div class="stat-card"><div class="num">13</div><div class="lbl">opt-in risk categories</div></div>
+      <div class="stat-card"><div class="num">527</div><div class="lbl">engine self-tests, for 14 modules (~5,500 lines)</div></div>
+      <div class="stat-card"><div class="num">103 / 154</div><div class="lbl">tickets done, across 6 features</div></div>
     </div>
     <p style="font-size:0.85rem;color:var(--text-muted)">
-      By HTTP method: GET 101 · PATCH 77 · POST 51 · DELETE 14 · PUT 1. One
+      By HTTP method: GET 118 · PATCH 81 · POST 78 · DELETE 19 · PUT 1. One
       platform's run is about 280–650 tests in 5–30 minutes, depending on the
       hardware.
     </p>
@@ -460,8 +466,85 @@ python3 run_tests.py --allow-bmc-reset tests/Manager/   # risky action: explicit
     </div>
     <p style="font-size:0.85rem;color:var(--text-muted)">
       The test files use these features unevenly. Expected-id fan-out appears
-      in 143 of the 244 test cases and named variants in 98; retries in 13.
+      in 146 of the 297 test cases and named variants in 111; retries in 15.
     </p>
+  </section>
+
+  <section id="visualization">
+    <span class="kicker">Visualization</span>
+    <h2>Seeing the results and the design</h2>
+    <p>
+      Two views: one for the results of a run, one for the design of the
+      tests. Identifying details (company, rig address, platform names, local
+      paths) and the run's result counts are masked in these screenshots.
+    </p>
+
+    <h3 style="margin-top:1.6rem">Results: the HTML report</h3>
+    <p>
+      Each run writes one self-contained HTML page, built on pytest-html.
+      Every test step is its own row. Rows can be filtered by category, HTTP
+      operation, and schema, and each row expands to show the request as a
+      replayable curl command.
+    </p>
+    <figure class="shot">
+      <img src="images/html-report/1-overview.png" alt="Report overview: environment, filters, and result rows" loading="lazy">
+      <figcaption>The report: run environment, filters, and one row per test step.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="images/html-report/3-group-steps.png" alt="A five-step sequence, one row per step" loading="lazy">
+      <figcaption>A multi-step sequence: each step is its own row (<code>step n/5</code>).</figcaption>
+    </figure>
+    <details class="more">
+      <summary>More report views: filters, failed, warning, and skipped rows</summary>
+      <figure class="shot">
+        <img src="images/html-report/2-filtered.png" alt="Report filtered to Chassis GET" loading="lazy">
+        <figcaption>Filtered to one category and one operation.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/html-report/4-failed-row.png" alt="Failed row listing each missing property" loading="lazy">
+        <figcaption>A failed row lists every missing property, not only the first.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/html-report/5-warning-row.png" alt="Warning row with curl command and undeclared properties" loading="lazy">
+        <figcaption>A warning row: the request as curl, and properties the response has but the schema does not declare.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/html-report/6-skipped-row.png" alt="Skipped row with the unsent curl command" loading="lazy">
+        <figcaption>A skipped row: an earlier step in the same sequence failed, so this step was not sent. The curl it would have sent is still shown.</figcaption>
+      </figure>
+    </details>
+
+    <h3 style="margin-top:2rem">Design: the YAML test visualizer</h3>
+    <p>
+      A command reads every test-definition file and writes one HTML page
+      with a flowchart for each sequence. It reads only the YAML, so it needs
+      no BMC. Blue boxes are requests, green boxes are Python helper steps,
+      and yellow boxes are static inputs. Grey edges show step order; orange
+      edges show which values pass from one step to the next.
+    </p>
+    <figure class="shot">
+      <img src="images/yaml-visualizer/1-overview.png" alt="Visualizer overview: sidebar and one sequence's flowchart" loading="lazy">
+      <figcaption>A sidebar lists the sequences by resource area and file; each sequence is one flowchart.</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="images/yaml-visualizer/4-unresolved-read.png" alt="A teardown step flagged for an unresolved read" loading="lazy">
+      <figcaption>A step that reads a value no earlier step writes is flagged before any run on hardware. Here, a typo in a key name.</figcaption>
+    </figure>
+    <details class="more">
+      <summary>More visualizer views: test-case list, test-case diagram, Mermaid source</summary>
+      <figure class="shot">
+        <img src="images/yaml-visualizer/6-test-case-list.png" alt="Test cases of one schema and their variants" loading="lazy">
+        <figcaption>Each file's test cases and their named request variants.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/yaml-visualizer/7-test-case-diagram.png" alt="Flowchart of one test case's setup" loading="lazy">
+        <figcaption>A single test case with its own setup steps.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/yaml-visualizer/5-mermaid-source.png" alt="Copyable Mermaid source under a diagram" loading="lazy">
+        <figcaption>Each diagram's Mermaid source can be copied into a code review or a wiki.</figcaption>
+      </figure>
+    </details>
   </section>
 
   <section id="ai-workflow">
@@ -625,16 +708,17 @@ Improvement loop  a mistake or a correction → a rules line, a skill edit, or m
     </div>
 
     <h3 style="margin-top:2rem">Records</h3>
-    <p>Every ticket is a file on disk with a status, so progress can be counted rather than remembered. As of 2026-10-20:</p>
+    <p>Every ticket is a file on disk with a status, so progress can be counted rather than remembered. As of 2026-10-29:</p>
     <div class="table-wrap">
       <table class="simple">
         <tr><th>Feature (one grill → spec → tickets pass)</th><th>Done / total</th></tr>
-        <tr><td>The config-driven engine, including migration of every schema and the engine audit</td><td>53 / 79 (12 more partly done)</td></tr>
+        <tr><td>The config-driven engine, including migration of every schema and the engine audit</td><td>69 / 98 (12 more partly done)</td></tr>
         <tr><td>Documentation passes (design, AI workflow, code guide, YAML guide)</td><td>18 / 18</td></tr>
         <tr><td>Property-compliance redesign (generating compliance data from the specs)</td><td>11 / 21 (4 more partly done)</td></tr>
         <tr><td>Validator-comparison docs</td><td>2 / 5 (3 more partly done)</td></tr>
         <tr><td>Live-findings log (where firmware and spec disagree)</td><td>0 / 9</td></tr>
-        <tr><td><b>Total</b></td><td><b>84 / 132</b></td></tr>
+        <tr><td>YAML test visualizer (a flow diagram for every sequence)</td><td>3 / 3</td></tr>
+        <tr><td><b>Total</b></td><td><b>103 / 154</b></td></tr>
       </table>
     </div>
     <p style="font-size:0.85rem;color:var(--text-muted)">
