@@ -291,20 +291,20 @@ python3 run_tests.py -m Chassis      # one schema
 python3 run_tests.py -k ".GET"       # read-only tests
 python3 run_tests.py --allow-bmc-reset tests/Manager/   # risky action: explicit opt-in</pre>
 
-    <h3 style="margin-top:1.6rem">By the numbers <span style="font-weight:400;font-size:0.8rem;color:var(--text-faint)">as of 2026-10-29</span></h3>
+    <h3 style="margin-top:1.6rem">By the numbers <span style="font-weight:400;font-size:0.8rem;color:var(--text-faint)">as of 2026-11-26</span></h3>
     <div class="stat-grid">
-      <div class="stat-card"><div class="num">76</div><div class="lbl">Redfish schemas covered, in 86 test-definition files across 42 resource areas</div></div>
-      <div class="stat-card"><div class="num">297</div><div class="lbl">test cases, plus 325 named request variants</div></div>
-      <div class="stat-card"><div class="num">60</div><div class="lbl">multi-step sequences, 283 steps in all</div></div>
-      <div class="stat-card"><div class="num">111</div><div class="lbl">property-compliance files, generated from the specs</div></div>
-      <div class="stat-card"><div class="num">12</div><div class="lbl">hardware platforms, across 2 generations</div></div>
+      <div class="stat-card"><div class="num">123</div><div class="lbl">Redfish schemas covered, in 117 test-definition files across 62 resource areas</div></div>
+      <div class="stat-card"><div class="num">460</div><div class="lbl">test cases, plus 403 named request variants</div></div>
+      <div class="stat-card"><div class="num">98</div><div class="lbl">multi-step sequences, 427 steps in all</div></div>
+      <div class="stat-card"><div class="num">219</div><div class="lbl">property-compliance files, generated from the specs</div></div>
+      <div class="stat-card"><div class="num">17</div><div class="lbl">hardware platforms, across 2 generations</div></div>
       <div class="stat-card"><div class="num">19</div><div class="lbl">engine features</div></div>
-      <div class="stat-card"><div class="num">13</div><div class="lbl">opt-in risk categories</div></div>
-      <div class="stat-card"><div class="num">527</div><div class="lbl">engine self-tests, for 14 modules (~5,500 lines)</div></div>
-      <div class="stat-card"><div class="num">103 / 154</div><div class="lbl">tickets done, across 6 features</div></div>
+      <div class="stat-card"><div class="num">15</div><div class="lbl">opt-in risk categories</div></div>
+      <div class="stat-card"><div class="num">550</div><div class="lbl">engine self-tests, for 14 modules (~5,500 lines)</div></div>
+      <div class="stat-card"><div class="num">106 / 158</div><div class="lbl">tickets done, across 6 features</div></div>
     </div>
     <p style="font-size:0.85rem;color:var(--text-muted)">
-      By HTTP method: GET 118 · PATCH 81 · POST 78 · DELETE 19 · PUT 1. One
+      By HTTP method: GET 244 · PATCH 95 · POST 95 · DELETE 25 · PUT 1. One
       platform's run is about 280–650 tests in 5–30 minutes, depending on the
       hardware.
     </p>
@@ -466,7 +466,7 @@ python3 run_tests.py --allow-bmc-reset tests/Manager/   # risky action: explicit
     </div>
     <p style="font-size:0.85rem;color:var(--text-muted)">
       The test files use these features unevenly. Expected-id fan-out appears
-      in 146 of the 297 test cases and named variants in 111; retries in 15.
+      in 213 of the 460 test cases and named variants in 133; retries in 19.
     </p>
   </section>
 
@@ -585,7 +585,7 @@ Improvement loop  a mistake or a correction → a rules line, a skill edit, or m
            └─ talks to            the live BMC (curl, pytest)</pre>
     <ul class="tight">
       <li><b>Per-folder rules</b> record each area's conventions and the traps already paid for.</li>
-      <li><b>Project skills</b> (4) encode repeatable jobs with verification built in: writing a test case from a plain-language description or a curl command, onboarding a new platform, refreshing a platform's inventory from its live rig (read-only, each change adopted deliberately), and regenerating compliance data from the spec.</li>
+      <li><b>Project skills</b> (5) encode repeatable jobs with verification built in: writing a test case from a plain-language description or a curl command, onboarding a new platform, refreshing a platform's inventory from its live rig (read-only, each change adopted deliberately), finding the APIs a live BMC serves that no test covers, and regenerating compliance data from the spec.</li>
       <li><b>Skill adapters</b> tell the global workflow skills where this repo keeps its tickets and docs.</li>
       <li><b>Getting the same setup:</b> cloning gives every in-git layer; a teammate adds the workflow skills, their own global rules (the author's four: think before coding, simplicity first, surgical changes, goal-driven execution), and lets memory build up.</li>
     </ul>
@@ -708,17 +708,17 @@ Improvement loop  a mistake or a correction → a rules line, a skill edit, or m
     </div>
 
     <h3 style="margin-top:2rem">Records</h3>
-    <p>Every ticket is a file on disk with a status, so progress can be counted rather than remembered. As of 2026-10-29:</p>
+    <p>Every ticket is a file on disk with a status, so progress can be counted rather than remembered. As of 2026-11-26:</p>
     <div class="table-wrap">
       <table class="simple">
         <tr><th>Feature (one grill → spec → tickets pass)</th><th>Done / total</th></tr>
-        <tr><td>The config-driven engine, including migration of every schema and the engine audit</td><td>69 / 98 (12 more partly done)</td></tr>
+        <tr><td>The config-driven engine, including migration of every schema and the engine audit</td><td>70 / 98 (12 more partly done)</td></tr>
         <tr><td>Documentation passes (design, AI workflow, code guide, YAML guide)</td><td>18 / 18</td></tr>
         <tr><td>Property-compliance redesign (generating compliance data from the specs)</td><td>11 / 21 (4 more partly done)</td></tr>
         <tr><td>Validator-comparison docs</td><td>2 / 5 (3 more partly done)</td></tr>
-        <tr><td>Live-findings log (where firmware and spec disagree)</td><td>0 / 9</td></tr>
+        <tr><td>Live-findings log (where firmware and spec disagree)</td><td>2 / 13</td></tr>
         <tr><td>YAML test visualizer (a flow diagram for every sequence)</td><td>3 / 3</td></tr>
-        <tr><td><b>Total</b></td><td><b>103 / 154</b></td></tr>
+        <tr><td><b>Total</b></td><td><b>106 / 158</b></td></tr>
       </table>
     </div>
     <p style="font-size:0.85rem;color:var(--text-muted)">

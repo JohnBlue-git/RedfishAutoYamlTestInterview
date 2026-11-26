@@ -83,6 +83,7 @@ files it reads automatically, in layers:
   writing a test case from a plain-language description or a curl command,
   onboarding a new platform, refreshing an existing platform's inventory
   from its live rig (read-only, each change adopted deliberately),
+  finding the APIs a live BMC serves that no test covers,
   regenerating compliance data from the spec.
 - **Skill adapters** are short notes telling the global workflow skills where
   this repo keeps its tickets and docs, so they write to the right place.
@@ -265,25 +266,25 @@ used to be unchecked.
 ## 7. Records
 
 Every ticket is a file on disk with a status, so progress can be counted
-rather than remembered. As of 2026-10-29:
+rather than remembered. As of 2026-11-26:
 
 | Feature (one grill → spec → tickets pass) | Done / total |
 |---|---|
-| The config-driven engine, including migration of every schema and the engine audit | 69 / 98 (12 more partly done) |
+| The config-driven engine, including migration of every schema and the engine audit | 70 / 98 (12 more partly done) |
 | Documentation passes (design, AI workflow, code guide, YAML guide) | 18 / 18 |
 | Property-compliance redesign (generating compliance data from the specs) | 11 / 21 (4 more partly done) |
 | Validator-comparison docs | 2 / 5 (3 more partly done) |
-| Live-findings log (where firmware and spec disagree) | 0 / 9 |
+| Live-findings log (where firmware and spec disagree) | 2 / 13 |
 | YAML test visualizer (a flow diagram for every sequence) | 3 / 3 |
-| **Total** | **103 / 154** |
+| **Total** | **106 / 158** |
 
 Other records:
 
-- **Engine:** 14 modules, about 5,500 lines, 527 self-tests run in a
+- **Engine:** 14 modules, about 5,500 lines, 550 self-tests run in a
   synthetic sandbox.
-- **Tests:** 297 test cases, 325 named request variants, and 60 sequences
-  covering 76 Redfish schemas in 42 resource areas, on 12 platforms.
-- **Project skills:** 4, each with verification built in.
+- **Tests:** 460 test cases, 403 named request variants, and 98 sequences
+  covering 123 Redfish schemas in 62 resource areas, on 17 platforms.
+- **Project skills:** 5, each with verification built in.
 - The live-findings tickets record findings rather than code work; several
   are waiting for a person to raise them with the firmware or spec owners.
 

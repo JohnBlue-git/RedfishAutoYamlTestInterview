@@ -159,7 +159,7 @@ hand-written suite used to reinvent in Python, module by module.
 | **Requests** | 18. placeholder substitution that preserves types · 19. per-request headers, auth, cookies, host and environment |
 
 The test files use these features unevenly. Expected-id fan-out appears in
-146 of the 297 test cases and named variants in 111; retries in 15.
+213 of the 460 test cases and named variants in 133; retries in 19.
 
 ## 6. Trade-offs
 
